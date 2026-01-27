@@ -1,0 +1,399 @@
+/*
+ * Medical Triage App - Shared Styles
+ * Hospital-style, touch-friendly, for robot touchscreen.
+ * Colors: white, blue, gray. Clear severity colors. No animations.
+ */
+
+/* -----------------------------------------------------------------------------
+   RESET & BASE
+   ----------------------------------------------------------------------------- */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 18px;
+  line-height: 1.4;
+  color: #2c3e50;
+  background: #f0f4f8;
+  min-height: 100vh;
+  padding: 16px;
+}
+
+/* -----------------------------------------------------------------------------
+   LAYOUT
+   ----------------------------------------------------------------------------- */
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+  background: #fff;
+  padding: 24px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+h1 {
+  font-size: 1.5rem;
+  color: #1a365d;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+h2 {
+  font-size: 1.25rem;
+  color: #2d3748;
+  margin-bottom: 16px;
+}
+
+/* -----------------------------------------------------------------------------
+   FORMS - Touch-friendly, large inputs
+   ----------------------------------------------------------------------------- */
+.form-group {
+  margin-bottom: 20px;
+}
+
+label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #2d3748;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="password"],
+select,
+textarea {
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 18px;
+  border: 2px solid #cbd5e0;
+  border-radius: 6px;
+  background: #fff;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #3182ce;
+}
+
+/* Large, touch-friendly buttons */
+.btn {
+  display: inline-block;
+  width: 100%;
+  padding: 16px 24px;
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  margin-top: 8px;
+}
+
+.btn-primary {
+  background: #3182ce;
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: #2c5282;
+}
+
+.btn-secondary {
+  background: #718096;
+  color: #fff;
+}
+
+.btn-secondary:hover {
+  background: #4a5568;
+}
+
+/* Spacing between multiple buttons */
+.btn + .btn {
+  margin-top: 12px;
+}
+
+/* -----------------------------------------------------------------------------
+   PATIENT DASHBOARD - Vitals & info
+   ----------------------------------------------------------------------------- */
+.patient-info {
+  background: #edf2f7;
+  padding: 16px;
+  border-radius: 6px;
+  margin-bottom: 24px;
+}
+
+.patient-info p {
+  margin-bottom: 6px;
+}
+
+.vitals-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 480px) {
+  .vitals-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   PAIN MAP - Body diagram clickable areas
+   ----------------------------------------------------------------------------- */
+.pain-map-wrapper {
+  text-align: center;
+  margin: 24px 0;
+}
+
+.body-diagram {
+  display: inline-block;
+  position: relative;
+  max-width: 280px;
+}
+
+.body-part {
+  display: inline-block;
+  padding: 14px 20px;
+  margin: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  border: 3px solid #3182ce;
+  border-radius: 8px;
+  background: #ebf8ff;
+  color: #2b6cb0;
+  cursor: pointer;
+}
+
+.body-part:hover,
+.body-part.selected {
+  background: #3182ce;
+  color: #fff;
+}
+
+.body-parts-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+/* -----------------------------------------------------------------------------
+   PAIN QUESTIONS
+   ----------------------------------------------------------------------------- */
+.question-block {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: #f7fafc;
+  border-radius: 8px;
+  border-left: 4px solid #3182ce;
+}
+
+.question-block label {
+  margin-bottom: 10px;
+}
+
+.radio-group,
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.radio-group label,
+.checkbox-group label {
+  display: flex;
+  align-items: center;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.radio-group input,
+.checkbox-group input {
+  width: auto;
+  margin-right: 8px;
+}
+
+/* -----------------------------------------------------------------------------
+   ANALYSIS RESULT - Severity colors
+   ----------------------------------------------------------------------------- */
+.result-card {
+  padding: 24px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border: 3px solid;
+}
+
+.result-card.severity-LOW {
+  background: #f0fff4;
+  border-color: #38a169;
+  color: #276749;
+}
+
+.result-card.severity-MEDIUM {
+  background: #fffaf0;
+  border-color: #dd6b20;
+  color: #c05621;
+}
+
+.result-card.severity-HIGH {
+  background: #fff5f5;
+  border-color: #e53e3e;
+  color: #c53030;
+}
+
+.result-card.severity-EMERGENCY {
+  background: #fff5f5;
+  border-color: #c53030;
+  color: #9b2c2c;
+  font-weight: 600;
+}
+
+.result-card h2 {
+  margin-bottom: 12px;
+}
+
+.result-card .summary,
+.result-card .recommendation {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* -----------------------------------------------------------------------------
+   DOCTOR DASHBOARD
+   ----------------------------------------------------------------------------- */
+.search-bar {
+  margin-bottom: 20px;
+}
+
+.search-bar input {
+  width: 100%;
+}
+
+.patient-list {
+  list-style: none;
+}
+
+.patient-list li {
+  padding: 16px;
+  margin-bottom: 10px;
+  background: #f7fafc;
+  border-radius: 6px;
+  border: 2px solid #e2e8f0;
+  cursor: pointer;
+}
+
+.patient-list li:hover {
+  border-color: #3182ce;
+  background: #ebf8ff;
+}
+
+.patient-list li.selected {
+  border-color: #3182ce;
+  background: #ebf8ff;
+}
+
+.patient-list li .name {
+  font-weight: 600;
+}
+
+.patient-list li .meta {
+  font-size: 0.9rem;
+  color: #718096;
+  margin-top: 4px;
+}
+
+.medical-history-form {
+  margin-top: 20px;
+  padding: 20px;
+  background: #edf2f7;
+  border-radius: 8px;
+}
+
+.medical-history-form textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+/* -----------------------------------------------------------------------------
+   NAV / LINKS
+   ----------------------------------------------------------------------------- */
+/* Top-of-page Home / Back navigation */
+.page-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.page-nav a {
+  text-decoration: none;
+}
+
+.page-nav .btn {
+  width: auto;
+  padding: 12px 20px;
+  font-size: 16px;
+}
+
+.nav-links {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nav-links a {
+  display: block;
+  text-align: center;
+}
+
+/* Logout link for doctor */
+.logout-link {
+  display: inline-block;
+  margin-bottom: 16px;
+  color: #718096;
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.logout-link:hover {
+  color: #e53e3e;
+}
+
+/* -----------------------------------------------------------------------------
+   MESSAGES
+   ----------------------------------------------------------------------------- */
+.msg {
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.msg.error {
+  background: #fed7d7;
+  color: #c53030;
+}
+
+.msg.success {
+  background: #c6f6d5;
+  color: #276749;
+}
+
+/* -----------------------------------------------------------------------------
+   HIDDEN
+   ----------------------------------------------------------------------------- */
+.hidden {
+  display: none !important;
+}

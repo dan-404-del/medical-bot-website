@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Doctor Dashboard – Medical Triage</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="container">
+    <nav class="page-nav">
+      <a href="/" class="btn btn-secondary">Home</a>
+      <a href="#" id="doctor-logout" class="btn btn-secondary">Logout</a>
+    </nav>
+    <h1>Doctor Dashboard</h1>
+
+    <div class="search-bar">
+      <label for="search-input">Search patients</label>
+      <input type="text" id="search-input" placeholder="Search by name or fingerprint ID">
+    </div>
+
+    <h2>Patients</h2>
+    <ul id="patient-list" class="patient-list">
+      <!-- Filled by app.js -->
+    </ul>
+
+    <div id="patient-detail" class="hidden">
+      <!-- On selection: medical history form injected by app.js -->
+    </div>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

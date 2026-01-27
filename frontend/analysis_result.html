@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analysis Result – Medical Triage</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="container">
+    <nav class="page-nav">
+      <a href="/dashboard.html" class="btn btn-secondary">← Back to Dashboard</a>
+      <a href="/" class="btn btn-secondary">Home</a>
+    </nav>
+    <h1>AI Triage Result</h1>
+    <p style="margin-bottom: 20px; color: #718096;">
+      AI is advisory only — not a medical diagnosis.
+    </p>
+
+    <div id="result-card" class="result-card severity-MEDIUM">
+      <h2>Severity: —</h2>
+    </div>
+
+    <div class="result-card" style="background: #f7fafc; border: 2px solid #e2e8f0;">
+      <div class="summary">
+        <strong>Explanation</strong>
+        <p id="result-summary" style="margin-top: 8px;">—</p>
+      </div>
+      <div class="recommendation" style="margin-top: 16px;">
+        <strong>Recommendation</strong>
+        <p id="result-recommendation" style="margin-top: 8px;">—</p>
+      </div>
+    </div>
+
+    <div class="nav-links" style="margin-top: 24px;">
+      <button type="button" id="btn-result-home" class="btn btn-primary">Back to Dashboard</button>
+    </div>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pain Selection – Medical Triage</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="container">
+    <nav class="page-nav">
+      <a href="/dashboard.html" class="btn btn-secondary">← Back to Dashboard</a>
+      <a href="/" class="btn btn-secondary">Home</a>
+    </nav>
+    <h1>Pain Selection</h1>
+    <p style="margin-bottom: 20px; color: #718096;">
+      Select <strong>one</strong> body part where you feel pain. Gender-specific diagram: use male/female based on patient sex.
+    </p>
+
+    <div id="pain-map-msg" class="msg"></div>
+
+    <div class="pain-map-wrapper">
+      <p id="diagram-label" style="font-weight: 600; margin-bottom: 12px;">Body diagram</p>
+      <div id="body-parts-container" class="body-parts-grid">
+        <!-- Buttons injected by app.js: Head, Chest, Abdomen, Left/Right Arm, Left/Right Leg, Back -->
+      </div>
+    </div>
+
+    <div class="nav-links">
+      <button type="button" id="btn-pain-next" class="btn btn-primary">Continue to Questions</button>
+    </div>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
