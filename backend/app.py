@@ -187,6 +187,11 @@ def app_js():
     return send_from_directory(FRONTEND_DIR, "app.js")
 
 
+@app.route("/body_diagram.png")
+def body_diagram_png():
+    return send_from_directory(FRONTEND_DIR, "body_diagram.png")
+
+
 # -----------------------------------------------------------------------------
 # API: PATIENT
 # -----------------------------------------------------------------------------
@@ -506,6 +511,91 @@ Respond ONLY with valid JSON, no other text:
 
     _save_analysis_result(fingerprint_id, body_part, questions, answers, result)
     return jsonify({"ok": True, "result": result})
+
+
+@app.route("/api/get_patient_vitals/<int:fingerprint_id>")
+def get_patient_vitals(fingerprint_id):
+    """Get all vitals records for a patient."""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT weight, height, heart_rate, spo2, temperature, blood_pressure, timestamp
+        FROM vitals WHERE fingerprint_id = ?
+        ORDER BY timestamp DESC
+        """,
+        (fingerprint_id,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    vitals = []
+    for r in rows:
+        vitals.append({
+            "weight": r["weight"],
+            "height": r["height"],
+            "heart_rate": r["heart_rate"],
+            "spo2": r["spo2"],
+            "temperature": r["temperature"],
+            "blood_pressure": r["blood_pressure"],
+            "timestamp": r["timestamp"],
+        })
+    return jsonify({"ok": True, "vitals": vitals})
+
+
+@app.route("/api/get_patient_analyses/<int:fingerprint_id>")
+def get_patient_analyses(fingerprint_id):
+    """Get all pain analysis records for a patient."""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT body_part, questions, answers, severity, ai_summary, recommendation, timestamp
+        FROM pain_analysis WHERE fingerprint_id = ?
+        ORDER BY timestamp DESC
+        """,
+        (fingerprint_id,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    analyses = []
+    for r in rows:
+        try:
+            rec = r["recommendation"] or "Doctor consultation"
+        except (KeyError, TypeError):
+            rec = "Doctor consultation"
+        
+        analyses.append({
+            "body_part": r["body_part"],
+            "questions": json.loads(r["questions"] or "[]"),
+            "answers": json.loads(r["answers"] or "[]"),
+            "severity": r["severity"],
+            "ai_summary": r["ai_summary"],
+            "recommendation": rec,
+            "timestamp": r["timestamp"],
+        })
+    return jsonify({"ok": True, "analyses": analyses})
+
+
+
+@app.route("/api/delete_patient/<int:fingerprint_id>", methods=["POST"])
+def delete_patient(fingerprint_id):
+    """Delete a patient and all associated data."""
+    conn = get_db()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM patients WHERE fingerprint_id = ?", (fingerprint_id,))
+        cur.execute("DELETE FROM vitals WHERE fingerprint_id = ?", (fingerprint_id,))
+        cur.execute("DELETE FROM medical_history WHERE fingerprint_id = ?", (fingerprint_id,))
+        cur.execute("DELETE FROM pain_analysis WHERE fingerprint_id = ?", (fingerprint_id,))
+        conn.commit()
+        return jsonify({"ok": True})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        conn.close()
 
 
 def _save_analysis_result(fingerprint_id, body_part, questions, answers, result):

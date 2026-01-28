@@ -26,6 +26,18 @@
 
     <div id="patient-detail" class="hidden">
       <!-- On selection: medical history form injected by app.js -->
+      <button id="delete-patient-btn" class="btn btn-danger hidden" style="margin-top: 20px;">Delete Patient</button>
+      <div id="medical-history-content"></div>
+
+      <div id="patient-vitals-container" style="margin-top: 30px;">
+        <h2>Vitals History</h2>
+        <div id="patient-vitals-list"></div>
+      </div>
+
+      <div id="patient-analyses-container" style="margin-top: 30px;">
+        <h2>AI Triage History</h2>
+        <div id="patient-analyses-list"></div>
+      </div>
     </div>
   </div>
   <script src="/app.js"></script>

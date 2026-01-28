@@ -250,6 +250,19 @@
           <p><strong>Sex:</strong> ${escapeHtml(p.sex)}</p>
           <p><strong>Fingerprint ID:</strong> ${p.fingerprint_id}</p>
         `;
+
+        // Fetch and display medical history for patients (read-only)
+        const historyR = await fetchJSON(`${API}/get_medical_history/${fid}`);
+        const h = historyR.history || {};
+        const remarksEl = document.getElementById("doctor-remarks");
+        if (remarksEl) {
+          remarksEl.innerHTML = `
+            <p><strong>Current Allergies:</strong> ${escapeHtml(h.current_allergies || 'N/A')}</p>
+            <p><strong>Past Allergies:</strong> ${escapeHtml(h.past_allergies || 'N/A')}</p>
+            <p><strong>Current Medications:</strong> ${escapeHtml(h.current_medications || 'N/A')}</p>
+            <p><strong>Past Medications:</strong> ${escapeHtml(h.past_medications || 'N/A')}</p>
+          `;
+        }
       } catch {
         window.location.href = "/";
       }
@@ -296,9 +309,19 @@
   // ---------------------------------------------------------------------------
   // Page: pain_map.html – Body part selection
   // ---------------------------------------------------------------------------
-  const BODY_PARTS = [
-    "Head", "Chest", "Abdomen", "Left Arm", "Right Arm",
-    "Left Leg", "Right Leg", "Back",
+  // ---------------------------------------------------------------------------
+  // Page: pain_map.html – Body part selection
+  // ---------------------------------------------------------------------------
+  // Coordinates for clickable regions on the body diagram (relative to 280x450 image)
+  const BODY_PART_REGIONS = [
+    { name: "Head",      x: 80, y: 0,   width: 120, height: 80 },
+    { name: "Chest",     x: 80, y: 85,  width: 120, height: 100 },
+    { name: "Abdomen",   x: 80, y: 190, width: 120, height: 80 },
+    { name: "Left Arm",  x: 0,  y: 80,  width: 70,  height: 150 },
+    { name: "Right Arm", x: 210, y: 80, width: 70,  height: 150 },
+    { name: "Left Leg",  x: 60, y: 280, width: 70,  height: 170 },
+    { name: "Right Leg", x: 150, y: 280, width: 70,  height: 170 },
+    { name: "Back",      x: 80, y: 85,  width: 120, height: 200 }, // Overlaps chest/abdomen, for simplicity assumes click on torso back area.
   ];
 
   function initPainMap() {
@@ -308,15 +331,18 @@
       return;
     }
 
-    const container = document.getElementById("body-parts-container");
+    const overlay = document.getElementById("body-diagram-overlay");
+    const diagramImg = document.getElementById("body-diagram-img");
+    const quickBtns = document.getElementById("body-part-buttons");
     const msg = document.getElementById("pain-map-msg");
     const nextBtn = document.getElementById("btn-pain-next");
+    const skipBtn = document.getElementById("btn-skip-pain");
     const diagramLabel = document.getElementById("diagram-label");
 
-    if (!container) return;
+    if (!overlay) return;
 
     // Gender-specific diagram: fetch patient and show Male/Female label
-    fetchJSON(`${API}/get_patient/${fid}`)
+    fetchJSON(`${API}/get_patient/${parseInt(fid, 10)}`)
       .then((r) => {
         if (r.ok && r.patient && diagramLabel) {
           const sex = (r.patient.sex || "").toLowerCase();
@@ -325,25 +351,109 @@
       })
       .catch(() => {});
 
-    let selected = getBodyPart();
-    BODY_PARTS.forEach((part) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "body-part" + (part === selected ? " selected" : "");
-      btn.textContent = part;
-      btn.dataset.part = part;
-      btn.addEventListener("click", () => {
-        selected = part;
-        setBodyPart(part);
-        container.querySelectorAll(".body-part").forEach((b) => b.classList.remove("selected"));
-        btn.classList.add("selected");
+    let selectedPart = getBodyPart();
+    let highlightedArea = null;
+
+    function highlightBodyPart(partName, region) {
+      if (highlightedArea) {
+        overlay.removeChild(highlightedArea);
+      }
+      if (!partName) {
+        selectedPart = "";
+        setBodyPart("");
+        return;
+      }
+
+      highlightedArea = document.createElement("div");
+      highlightedArea.style.position = "absolute";
+      highlightedArea.style.left = `${region.x}px`;
+      highlightedArea.style.top = `${region.y}px`;
+      highlightedArea.style.width = `${region.width}px`;
+      highlightedArea.style.height = `${region.height}px`;
+      highlightedArea.style.backgroundColor = "rgba(49, 130, 206, 0.4)"; // Blue transparent
+      highlightedArea.style.border = "2px solid #3182ce";
+      highlightedArea.style.borderRadius = "5px";
+      highlightedArea.style.cursor = "pointer";
+      overlay.appendChild(highlightedArea);
+      selectedPart = partName;
+      setBodyPart(partName);
+    }
+
+    function selectPartByName(partName) {
+      const region = BODY_PART_REGIONS.find((r) => r.name === partName);
+      if (!region) return;
+      highlightBodyPart(partName, region);
+      if (msg) {
+        msg.textContent = `Selected: ${partName}`;
+        msg.className = "msg success";
+      }
+    }
+
+    // If image fails to load, show message and rely on quick buttons
+    if (diagramImg) {
+      diagramImg.addEventListener("error", () => {
+        if (msg) {
+          msg.textContent = "Body diagram failed to load. Use the Quick select buttons below.";
+          msg.className = "msg error";
+        }
       });
-      container.appendChild(btn);
+    }
+
+    // Build visible body-part buttons
+    if (quickBtns) {
+      quickBtns.innerHTML = "";
+      BODY_PART_REGIONS.forEach((r) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "btn btn-secondary";
+        b.textContent = r.name;
+        b.addEventListener("click", () => selectPartByName(r.name));
+        quickBtns.appendChild(b);
+      });
+    }
+
+    // Restore selection on load
+    if (selectedPart) {
+      selectPartByName(selectedPart);
+    }
+
+    overlay.addEventListener("click", (e) => {
+      const rect = overlay.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      let clickedPart = null;
+      let clickedRegion = null;
+
+      for (const region of BODY_PART_REGIONS) {
+        // Adjust region coordinates based on diagram container scaling
+        // The container is 280x450, the coordinates are for this fixed size
+        if (x >= region.x && x <= region.x + region.width &&
+            y >= region.y && y <= region.y + region.height) {
+          clickedPart = region.name;
+          clickedRegion = region;
+          break;
+        }
+      }
+
+      if (clickedPart) {
+        highlightBodyPart(clickedPart, clickedRegion);
+        if (msg) {
+          msg.textContent = `Selected: ${clickedPart}`;
+          msg.className = "msg success";
+        }
+      } else {
+        highlightBodyPart(null, null); // Clear selection
+        if (msg) {
+          msg.textContent = "Click a body part on the diagram (or use Quick select buttons).";
+          msg.className = "msg error";
+        }
+      }
     });
 
     if (nextBtn) {
       nextBtn.addEventListener("click", async () => {
-        if (!selected) {
+        if (!selectedPart) {
           msg.textContent = "Please select a body part.";
           msg.className = "msg error";
           return;
@@ -352,13 +462,21 @@
         try {
           await fetchJSON(`${API}/save_pain_selection`, {
             method: "POST",
-            body: JSON.stringify({ fingerprint_id: parseInt(fid, 10), body_part: selected }),
+            body: JSON.stringify({ fingerprint_id: parseInt(fid, 10), body_part: selectedPart }),
           });
           window.location.href = "/pain_questions.html";
         } catch (err) {
           msg.textContent = err.message || "Failed to save selection.";
           msg.className = "msg error";
         }
+      });
+    }
+
+    if (skipBtn) {
+      skipBtn.addEventListener("click", () => {
+        // Clear any pain selection related session data before skipping
+        setBodyPart(""); // Clear selected body part
+        window.location.href = "/dashboard.html";
       });
     }
   }
@@ -629,6 +747,26 @@
     let allPatients = [];
     let selectedFid = null;
 
+    const deleteBtn = document.getElementById("delete-patient-btn");
+    if (deleteBtn) {
+      deleteBtn.onclick = async () => {
+        if (!selectedFid) return;
+        if (!confirm(`Are you sure you want to delete patient ${selectedFid}? This cannot be undone.`)) {
+          return;
+        }
+        try {
+          await fetchJSON(`${API}/delete_patient/${selectedFid}`, { method: "POST" });
+          alert("Patient deleted successfully.");
+          detail.classList.add("hidden");
+          selectedFid = null;
+          deleteBtn.classList.add("hidden"); // Hide button after deletion
+          loadPatients(); // Reload the patient list
+        } catch (err) {
+          alert(err.message || "Failed to delete patient.");
+        }
+      };
+    }
+
     async function loadPatients() {
       try {
         const r = await fetchJSON(`${API}/get_all_patients`);
@@ -671,33 +809,93 @@
       selectedFid = fid;
       list.querySelectorAll("li").forEach((el) => el.classList.toggle("selected", parseInt(el.dataset.fid, 10) === fid));
       detail.classList.remove("hidden");
-      detail.innerHTML = "<p>Loading…</p>";
+      if (deleteBtn) deleteBtn.classList.remove("hidden");
+
+      // Temporarily clear detail while loading, but keep the delete button intact
+      const currentDetailContent = detail.innerHTML;
+      detail.innerHTML = "<p>Loading…</p>" + (deleteBtn ? deleteBtn.outerHTML : "");
 
       try {
         const r = await fetchJSON(`${API}/get_medical_history/${fid}`);
         const h = r.history || {};
+
+        const vitalsR = await fetchJSON(`${API}/get_patient_vitals/${fid}`);
+        const vitals = vitalsR.vitals || [];
+
+        const analysesR = await fetchJSON(`${API}/get_patient_analyses/${fid}`);
+        const analyses = analysesR.analyses || [];
+
+        let vitalsHtml = '<h3>No vitals recorded.</h3>';
+        if (vitals.length > 0) {
+            vitalsHtml = '<div class="vitals-list">';
+            vitals.forEach(v => {
+                vitalsHtml += `
+                    <div class="vitals-item" style="background: #f7fafc; padding: 12px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #e2e8f0;">
+                        <p><strong>Timestamp:</strong> ${v.timestamp}</p>
+                        <p><strong>Weight:</strong> ${v.weight || 'N/A'} kg</p>
+                        <p><strong>Height:</strong> ${v.height || 'N/A'} cm</p>
+                        <p><strong>Heart Rate:</strong> ${v.heart_rate || 'N/A'} bpm</p>
+                        <p><strong>SpO2:</strong> ${v.spo2 || 'N/A'} %</p>
+                        <p><strong>Temperature:</strong> ${v.temperature || 'N/A'} °C</p>
+                        <p><strong>Blood Pressure:</strong> ${escapeHtml(v.blood_pressure || 'N/A')}</p>
+                    </div>
+                `;
+            });
+            vitalsHtml += '</div>';
+        }
+
+        let analysesHtml = '<h3>No AI analyses recorded.</h3>';
+        if (analyses.length > 0) {
+            analysesHtml = '<div class="analyses-list">';
+            analyses.forEach(a => {
+                const severityClass = `severity-${(a.severity || 'MEDIUM').toUpperCase()}`;
+                analysesHtml += `
+                    <div class="analyses-item ${severityClass}" style="padding: 12px; border-radius: 6px; margin-bottom: 8px; border: 1px solid;">
+                        <p><strong>Timestamp:</strong> ${a.timestamp}</p>
+                        <p><strong>Body Part:</strong> ${escapeHtml(a.body_part)}</p>
+                        <p><strong>Severity:</strong> <span class="${severityClass}">${a.severity}</span></p>
+                        <p><strong>Summary:</strong> ${escapeHtml(a.ai_summary || 'N/A')}</p>
+                        <p><strong>Recommendation:</strong> ${escapeHtml(a.recommendation || 'N/A')}</p>
+                    </div>
+                `;
+            });
+            analysesHtml += '</div>';
+        }
+
         detail.innerHTML = `
-          <h2>Medical history – Patient ${fid}</h2>
-          <form id="medical-history-form" class="medical-history-form">
-            <div class="form-group">
-              <label>Current allergies</label>
-              <textarea id="curr_allergies">${escapeHtml(h.current_allergies || "")}</textarea>
+          <div id="medical-history-content">
+            <h2>Medical history – Patient ${fid}</h2>
+            <form id="medical-history-form" class="medical-history-form">
+              <div class="form-group">
+                <label>Current allergies</label>
+                <textarea id="curr_allergies">${escapeHtml(h.current_allergies || "")}</textarea>
+              </div>
+              <div class="form-group">
+                <label>Past allergies</label>
+                <textarea id="past_allergies">${escapeHtml(h.past_allergies || "")}</textarea>
+              </div>
+              <div class="form-group">
+                <label>Current medications</label>
+                <textarea id="curr_medications">${escapeHtml(h.current_medications || "")}</textarea>
+              </div>
+              <div class="form-group">
+                <label>Past medications</label>
+                <textarea id="past_medications">${escapeHtml(h.past_medications || "")}</textarea>
+              </div>
+              <div id="history-msg" class="msg"></div>
+              <button type="submit" class="btn btn-primary">Save medical history</button>
+            </form>
+
+            <div style="margin-top: 30px;">
+              <h2>Vitals History</h2>
+              ${vitalsHtml}
             </div>
-            <div class="form-group">
-              <label>Past allergies</label>
-              <textarea id="past_allergies">${escapeHtml(h.past_allergies || "")}</textarea>
+
+            <div style="margin-top: 30px;">
+              <h2>AI Triage History</h2>
+              ${analysesHtml}
             </div>
-            <div class="form-group">
-              <label>Current medications</label>
-              <textarea id="curr_medications">${escapeHtml(h.current_medications || "")}</textarea>
-            </div>
-            <div class="form-group">
-              <label>Past medications</label>
-              <textarea id="past_medications">${escapeHtml(h.past_medications || "")}</textarea>
-            </div>
-            <div id="history-msg" class="msg"></div>
-            <button type="submit" class="btn btn-primary">Save medical history</button>
-          </form>
+          </div>
         `;
 
         const f = document.getElementById("medical-history-form");
