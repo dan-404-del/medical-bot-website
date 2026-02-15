@@ -7,8 +7,17 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+  <script>
+    // Check if language is selected, if not redirect to language selection
+    if (!localStorage.getItem('selectedLanguage')) {
+        window.location.href = 'language_selection.html';
+    }
+  </script>
   <div class="container">
-    <h1>Patient Registration</h1>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <h1>Patient Registration</h1>
+      <button onclick="changeLanguage()" style="background: #4299e1; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">🌐 Change Language</button>
+    </div>
     <p style="margin-bottom: 20px; color: #718096;">
       Robot registers patients here. Fingerprint ID is entered by the robot (simulated input).
       <!-- TODO: Integrate fingerprint sensor hardware -->
@@ -64,5 +73,11 @@
     </form>
   </div>
   <script src="/app.js"></script>
+  <script>
+    function changeLanguage() {
+      localStorage.removeItem('selectedLanguage');
+      window.location.href = 'language_selection.html';
+    }
+  </script>
 </body>
 </html>

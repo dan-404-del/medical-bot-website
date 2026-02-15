@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Language Selection - Medical Robot</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 id="app-title">Medical Robot Assistant</h1>
+            <p id="select-language">Please select your preferred language</p>
+        </header>
+        
+        <main>
+            <div class="language-grid">
+                <button class="language-btn" onclick="selectLanguage('en')" data-lang="en">
+                    <div class="flag">🇬🇧</div>
+                    <h3>English</h3>
+                    <p>English</p>
+                </button>
+                
+                <button class="language-btn" onclick="selectLanguage('ml')" data-lang="ml">
+                    <div class="flag">🇮🇳</div>
+                    <h3>മലയാളം</h3>
+                    <p>Malayalam</p>
+                </button>
+                
+                <button class="language-btn" onclick="selectLanguage('hi')" data-lang="hi">
+                    <div class="flag">🇮🇳</div>
+                    <h3>हिन्दी</h3>
+                    <p>Hindi</p>
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Language translations
+        const translations = {
+            en: {
+                'app-title': 'Medical Robot Assistant',
+                'select-language': 'Please select your preferred language'
+            },
+            ml: {
+                'app-title': 'മെഡിക്കൽ റോബോട്ട് അസിസ്റ്റന്റ്',
+                'select-language': 'ദയവായി നിങ്ങളുടെ ഇഷ്ടഭാഷ തിരഞ്ഞെടുക്കുക'
+            },
+            hi: {
+                'app-title': 'मेडिकल रोबोट सहायक',
+                'select-language': 'कृपया अपनी पसंदीदा भाषा चुनें'
+            }
+        };
+
+        function selectLanguage(lang) {
+            localStorage.setItem('selectedLanguage', lang);
+            // Redirect to main page
+            window.location.href = 'index.html';
+        }
+
+        // Apply translations based on stored language
+        function applyTranslations(lang) {
+            const elements = document.querySelectorAll('[id]');
+            elements.forEach(element => {
+                const key = element.id;
+                if (translations[lang] && translations[lang][key]) {
+                    element.textContent = translations[lang][key];
+                }
+            });
+        }
+
+        // Check if language is already selected
+        const storedLang = localStorage.getItem('selectedLanguage');
+        if (storedLang) {
+            applyTranslations(storedLang);
+        }
+    </script>
+
+    <style>
+        .language-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin: 3rem 0;
+        }
+
+        .language-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 15px;
+            padding: 2rem;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .language-btn:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+
+        .flag {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .language-btn h3 {
+            margin: 0.5rem 0;
+            font-size: 1.5rem;
+        }
+
+        .language-btn p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        header h1 {
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+    </style>
+</body>
+</html>

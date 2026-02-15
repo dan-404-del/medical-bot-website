@@ -24,9 +24,16 @@
   function setBodyPart(part) {
     sessionStorage.setItem("body_part", part);
   }
+  function getSpecificArea() {
+    return sessionStorage.getItem("specific_area") || "";
+  }
+  function setSpecificArea(area) {
+    sessionStorage.setItem("specific_area", area);
+  }
   function clearSession() {
     sessionStorage.removeItem("fingerprint_id");
     sessionStorage.removeItem("body_part");
+    sessionStorage.removeItem("specific_area");
   }
 
   /**
@@ -312,7 +319,7 @@
   // ---------------------------------------------------------------------------
   // Page: pain_map.html – Body part selection
   // ---------------------------------------------------------------------------
-  // Coordinates for clickable regions on the body diagram (relative to 280x450 image)
+  // Coordinates for clickable regions on body diagram (relative to 280x450 image)
   const BODY_PART_REGIONS = [
     { name: "Head",      x: 80, y: 0,   width: 120, height: 80 },
     { name: "Chest",     x: 80, y: 85,  width: 120, height: 100 },
@@ -323,6 +330,18 @@
     { name: "Right Leg", x: 150, y: 280, width: 70,  height: 170 },
     { name: "Back",      x: 80, y: 85,  width: 120, height: 200 }, // Overlaps chest/abdomen, for simplicity assumes click on torso back area.
   ];
+
+  // Specific areas for each body part
+  const SPECIFIC_AREAS = {
+    "Head": ["Forehead", "Temple", "Eye area", "Nose", "Cheeks", "Jaw", "Neck", "Scalp"],
+    "Chest": ["Sternum", "Left side", "Right side", "Upper chest", "Lower chest", "Heart area", "Lungs area"],
+    "Abdomen": ["Upper abdomen", "Lower abdomen", "Left side", "Right side", "Navel area", "Stomach area", "Intestinal area"],
+    "Left Arm": ["Shoulder", "Upper arm", "Elbow", "Forearm", "Wrist", "Hand", "Fingers", "Thumb"],
+    "Right Arm": ["Shoulder", "Upper arm", "Elbow", "Forearm", "Wrist", "Hand", "Fingers", "Thumb"],
+    "Left Leg": ["Hip", "Upper thigh", "Knee", "Lower thigh", "Shin", "Ankle", "Foot", "Toes"],
+    "Right Leg": ["Hip", "Upper thigh", "Knee", "Lower thigh", "Shin", "Ankle", "Foot", "Toes"],
+    "Back": ["Upper back", "Middle back", "Lower back", "Left side", "Right side", "Spine", "Shoulder blades", "Tailbone"]
+  };
 
   function initPainMap() {
     const fid = getFingerprintId();
@@ -352,7 +371,82 @@
       .catch(() => {});
 
     let selectedPart = getBodyPart();
+    let selectedArea = getSpecificArea();
     let highlightedArea = null;
+
+    function showSpecificAreaSection(bodyPart) {
+      const specificSection = document.getElementById("specific-area-section");
+      const selectedPartSpan = document.getElementById("selected-body-part");
+      const areaButtons = document.getElementById("specific-area-buttons");
+      const bodyPartImage = document.getElementById("body-part-image");
+      const areaNamesBox = document.getElementById("area-names-box");
+
+      if (!specificSection || !SPECIFIC_AREAS[bodyPart]) {
+        return;
+      }
+
+      // Update section title
+      if (selectedPartSpan) {
+        selectedPartSpan.textContent = bodyPart;
+      }
+
+      // Update image (placeholder for now)
+      if (bodyPartImage) {
+        bodyPartImage.innerHTML = `
+          <div style="text-align: center; color: #718096;">
+            <div style="font-size: 3rem; margin-bottom: 10px;">🦾</div>
+            <div>${bodyPart} Image</div>
+          </div>
+        `;
+      }
+
+      // Update area names box
+      if (areaNamesBox) {
+        const areas = SPECIFIC_AREAS[bodyPart];
+        areaNamesBox.innerHTML = areas.map(area => 
+          `<div style="padding: 4px 0; border-bottom: 1px solid #e2e8f0;">• ${area}</div>`
+        ).join('');
+      }
+
+      // Create area buttons
+      if (areaButtons) {
+        areaButtons.innerHTML = "";
+        SPECIFIC_AREAS[bodyPart].forEach(area => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "btn btn-outline";
+          btn.textContent = area;
+          btn.addEventListener("click", () => selectSpecificArea(area));
+          areaButtons.appendChild(btn);
+        });
+      }
+
+      // Show the section
+      specificSection.classList.remove("hidden");
+    }
+
+    function selectSpecificArea(area) {
+      selectedArea = area;
+      setSpecificArea(area);
+      
+      // Update button styles
+      const areaButtons = document.getElementById("specific-area-buttons");
+      if (areaButtons) {
+        areaButtons.querySelectorAll("button").forEach(btn => {
+          if (btn.textContent === area) {
+            btn.className = "btn btn-primary";
+          } else {
+            btn.className = "btn btn-outline";
+          }
+        });
+      }
+
+      // Update message
+      if (msg) {
+        msg.textContent = `Selected: ${selectedPart} - ${area}`;
+        msg.className = "msg success";
+      }
+    }
 
     function highlightBodyPart(partName, region) {
       if (highlightedArea) {
@@ -383,6 +477,7 @@
       const region = BODY_PART_REGIONS.find((r) => r.name === partName);
       if (!region) return;
       highlightBodyPart(partName, region);
+      showSpecificAreaSection(partName);
       if (msg) {
         msg.textContent = `Selected: ${partName}`;
         msg.className = "msg success";
@@ -438,12 +533,18 @@
 
       if (clickedPart) {
         highlightBodyPart(clickedPart, clickedRegion);
+        showSpecificAreaSection(clickedPart);
         if (msg) {
           msg.textContent = `Selected: ${clickedPart}`;
           msg.className = "msg success";
         }
       } else {
         highlightBodyPart(null, null); // Clear selection
+        // Hide specific area section
+        const specificSection = document.getElementById("specific-area-section");
+        if (specificSection) {
+          specificSection.classList.add("hidden");
+        }
         if (msg) {
           msg.textContent = "Click a body part on the diagram (or use Quick select buttons).";
           msg.className = "msg error";
@@ -462,7 +563,11 @@
         try {
           await fetchJSON(`${API}/save_pain_selection`, {
             method: "POST",
-            body: JSON.stringify({ fingerprint_id: parseInt(fid, 10), body_part: selectedPart }),
+            body: JSON.stringify({ 
+              fingerprint_id: parseInt(fid, 10), 
+              body_part: selectedPart,
+              specific_area: selectedArea || ""
+            }),
           });
           window.location.href = "/pain_questions.html";
         } catch (err) {
@@ -487,6 +592,7 @@
   function initPainQuestions() {
     const fid = getFingerprintId();
     const bodyPart = getBodyPart();
+    const specificArea = getSpecificArea();
     if (!fid || !bodyPart) {
       window.location.href = "/dashboard.html";
       return;
@@ -497,7 +603,7 @@
     const container = document.getElementById("questions-container");
     const msg = document.getElementById("pain-questions-msg");
 
-    if (title) title.textContent = `Pain location: ${bodyPart}`;
+    if (title) title.textContent = `Pain location: ${bodyPart}${specificArea ? ` - ${specificArea}` : ''}`;
 
     const questions = getQuestionsForBodyPart(bodyPart);
     const answers = [];
@@ -611,6 +717,7 @@
           body: JSON.stringify({
             fingerprint_id: parseInt(fid, 10),
             body_part: bodyPart,
+            specific_area: specificArea,
             questions,
             answers: ans,
           }),
@@ -620,6 +727,7 @@
           body: JSON.stringify({
             fingerprint_id: parseInt(fid, 10),
             body_part: bodyPart,
+            specific_area: specificArea,
             questions,
             answers: ans,
           }),

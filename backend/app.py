@@ -121,6 +121,12 @@ def init_db():
             (DOCTOR_ID, DOCTOR_PASSWORD),
         )
 
+    # Add specific_area column if missing (for existing DBs)
+    try:
+        cur.execute("ALTER TABLE pain_analysis ADD COLUMN specific_area TEXT")
+    except sqlite3.OperationalError:
+        pass
+
     # Add recommendation column if missing (for existing DBs)
     try:
         cur.execute("ALTER TABLE pain_analysis ADD COLUMN recommendation TEXT")
@@ -170,6 +176,11 @@ def analysis_result_page():
 @app.route("/doctor_login.html")
 def doctor_login_page():
     return send_from_directory(FRONTEND_DIR, "doctor_login.html")
+
+
+@app.route("/language_selection.html")
+def language_selection_page():
+    return send_from_directory(FRONTEND_DIR, "language_selection.html")
 
 
 @app.route("/doctor_dashboard.html")
@@ -351,10 +362,11 @@ def _int(v):
 
 @app.route("/api/save_pain_selection", methods=["POST"])
 def save_pain_selection():
-    """Store selected body part for pain. Used before question page."""
+    """Store selected body part and specific area for pain. Used before question page."""
     data = request.get_json() or {}
     fingerprint_id = data.get("fingerprint_id")
     body_part = (data.get("body_part") or "").strip()
+    specific_area = (data.get("specific_area") or "").strip()
 
     if fingerprint_id is None or not body_part:
         return jsonify({"ok": False, "error": "Missing fingerprint_id or body_part"}), 400
@@ -372,8 +384,8 @@ def save_pain_selection():
         return jsonify({"ok": False, "error": "Invalid body_part"}), 400
 
     # We store it in the next pain_analysis record when they submit answers.
-    # For now we just validate; frontend keeps body_part in sessionStorage.
-    return jsonify({"ok": True, "body_part": body_part})
+    # For now we just validate; frontend keeps body_part and specific_area in sessionStorage.
+    return jsonify({"ok": True, "body_part": body_part, "specific_area": specific_area})
 
 
 @app.route("/api/save_pain_answers", methods=["POST"])
@@ -382,6 +394,7 @@ def save_pain_answers():
     data = request.get_json() or {}
     fingerprint_id = data.get("fingerprint_id")
     body_part = (data.get("body_part") or "").strip()
+    specific_area = (data.get("specific_area") or "").strip()
     questions = data.get("questions")  # list of question strings
     answers = data.get("answers")     # list of answer strings
 
@@ -400,10 +413,10 @@ def save_pain_answers():
     cur = conn.cursor()
     cur.execute(
         """
-        INSERT INTO pain_analysis (fingerprint_id, body_part, questions, answers, severity, ai_summary)
-        VALUES (?, ?, ?, ?, NULL, NULL)
+        INSERT INTO pain_analysis (fingerprint_id, body_part, specific_area, questions, answers, severity, ai_summary)
+        VALUES (?, ?, ?, ?, ?, NULL, NULL)
         """,
-        (fingerprint_id, body_part, q_json, a_json),
+        (fingerprint_id, body_part, specific_area, q_json, a_json),
     )
     conn.commit()
     analysis_id = cur.lastrowid
@@ -414,13 +427,14 @@ def save_pain_answers():
 @app.route("/api/analyze_condition", methods=["POST"])
 def analyze_condition():
     """
-    Send vitals + body part + 10 answers to Gemini API.
+    Send vitals + body part + specific area + 10 answers to Gemini API.
     Returns severity (LOW/MEDIUM/HIGH/EMERGENCY), summary, recommendation.
     AI is advisory only — NOT a medical diagnosis.
     """
     data = request.get_json() or {}
     fingerprint_id = data.get("fingerprint_id")
     body_part = data.get("body_part")
+    specific_area = data.get("specific_area")
     answers = data.get("answers")  # list
     questions = data.get("questions")  # list
 
@@ -471,10 +485,14 @@ def analyze_condition():
         a = (answers or [])[i] if i < len(answers or []) else "N/A"
         qa_lines.append(f"Q: {q}\nA: {a}")
 
+    location_text = f"{body_part}"
+    if specific_area:
+        location_text += f" - {specific_area}"
+
     prompt = f"""You are an advisory triage assistant for a prototype medical robot. This is NOT a real diagnosis.
 
 Patient: {row['name']}, age {row['age']}, sex {row['sex']}.
-Pain location: {body_part}
+Pain location: {location_text}
 Vitals: {json.dumps(vitals)}
 
 Questions and answers:
@@ -509,7 +527,7 @@ Respond ONLY with valid JSON, no other text:
     result["summary"] = result.get("summary") or "No summary provided."
     result["recommendation"] = result.get("recommendation") or "Doctor consultation"
 
-    _save_analysis_result(fingerprint_id, body_part, questions, answers, result)
+    _save_analysis_result(fingerprint_id, body_part, specific_area, questions, answers, result)
     return jsonify({"ok": True, "result": result})
 
 
@@ -550,7 +568,7 @@ def get_patient_analyses(fingerprint_id):
     cur = conn.cursor()
     cur.execute(
         """
-        SELECT body_part, questions, answers, severity, ai_summary, recommendation, timestamp
+        SELECT body_part, specific_area, questions, answers, severity, ai_summary, recommendation, timestamp
         FROM pain_analysis WHERE fingerprint_id = ?
         ORDER BY timestamp DESC
         """,
@@ -568,6 +586,7 @@ def get_patient_analyses(fingerprint_id):
         
         analyses.append({
             "body_part": r["body_part"],
+            "specific_area": r["specific_area"],
             "questions": json.loads(r["questions"] or "[]"),
             "answers": json.loads(r["answers"] or "[]"),
             "severity": r["severity"],
@@ -598,7 +617,7 @@ def delete_patient(fingerprint_id):
         conn.close()
 
 
-def _save_analysis_result(fingerprint_id, body_part, questions, answers, result):
+def _save_analysis_result(fingerprint_id, body_part, specific_area, questions, answers, result):
     """Update latest pain_analysis row with AI result, or insert new."""
     conn = get_db()
     cur = conn.cursor()
@@ -620,18 +639,18 @@ def _save_analysis_result(fingerprint_id, body_part, questions, answers, result)
     if row:
         cur.execute(
             """
-            UPDATE pain_analysis SET questions = ?, answers = ?, severity = ?, ai_summary = ?, recommendation = ?
+            UPDATE pain_analysis SET questions = ?, answers = ?, severity = ?, ai_summary = ?, recommendation = ?, specific_area = ?
             WHERE id = ?
             """,
-            (q_json, a_json, severity, summary, recommendation, row["id"]),
+            (q_json, a_json, severity, summary, recommendation, specific_area, row["id"]),
         )
     else:
         cur.execute(
             """
-            INSERT INTO pain_analysis (fingerprint_id, body_part, questions, answers, severity, ai_summary, recommendation)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO pain_analysis (fingerprint_id, body_part, specific_area, questions, answers, severity, ai_summary, recommendation)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (fingerprint_id, body_part, q_json, a_json, severity, summary, recommendation),
+            (fingerprint_id, body_part, specific_area, q_json, a_json, severity, summary, recommendation),
         )
     conn.commit()
     conn.close()
@@ -689,7 +708,7 @@ def get_analysis(fingerprint_id):
     cur = conn.cursor()
     cur.execute(
         """
-        SELECT body_part, questions, answers, severity, ai_summary, recommendation, timestamp
+        SELECT body_part, specific_area, questions, answers, severity, ai_summary, recommendation, timestamp
         FROM pain_analysis WHERE fingerprint_id = ?
         ORDER BY timestamp DESC LIMIT 1
         """,
@@ -710,6 +729,7 @@ def get_analysis(fingerprint_id):
         "ok": True,
         "analysis": {
             "body_part": row["body_part"],
+            "specific_area": row["specific_area"],
             "questions": json.loads(row["questions"] or "[]"),
             "answers": json.loads(row["answers"] or "[]"),
             "severity": row["severity"],

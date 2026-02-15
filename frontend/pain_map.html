@@ -29,6 +29,32 @@
       </div>
     </div>
 
+    <!-- Specific area selection -->
+    <div id="specific-area-section" class="hidden" style="margin-top: 20px; padding: 20px; background: #f7fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+      <h3 style="margin-bottom: 15px;">Select specific area for <span id="selected-body-part"></span></h3>
+      
+      <!-- Image display area -->
+      <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+        <div style="flex: 1;">
+          <h4 style="margin-bottom: 10px;">Visual Reference</h4>
+          <div id="body-part-image" style="width: 200px; height: 200px; background: #edf2f7; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 2px dashed #cbd5e0;">
+            <span style="color: #718096;">Body part image</span>
+          </div>
+        </div>
+        
+        <div style="flex: 1;">
+          <h4 style="margin-bottom: 10px;">Area Names</h4>
+          <div id="area-names-box" style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; max-height: 180px; overflow-y: auto;">
+            <p style="color: #718096; font-style: italic;">Select a body part to see specific areas</p>
+          </div>
+        </div>
+      </div>
+      
+      <div id="specific-area-buttons" style="display: flex; flex-wrap: wrap; gap: 10px;">
+        <!-- Specific area buttons will be populated here -->
+      </div>
+    </div>
+
     <div style="margin-top: 18px;">
       <p style="margin-bottom: 10px; font-weight: 600;">Quick select (if the diagram isn’t visible):</p>
       <div id="body-part-buttons" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
