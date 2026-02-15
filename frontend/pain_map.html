@@ -10,10 +10,10 @@
   <div class="container">
     <nav class="page-nav">
       <a href="/dashboard.html" class="btn btn-secondary">← Back to Dashboard</a>
-      <a href="/" class="btn btn-secondary">Home</a>
+      <a href="/" class="btn btn-secondary" data-translate="home">Home</a>
     </nav>
-    <h1>Pain Selection</h1>
-    <p style="margin-bottom: 20px; color: #718096;">
+    <h1 data-translate="pain-selection">Pain Selection</h1>
+    <p style="margin-bottom: 20px; color: #718096;" data-translate="select-body-part">
       Select <strong>one</strong> body part where you feel pain. Gender-specific diagram: use male/female based on patient sex.
     </p>
 
@@ -66,5 +66,11 @@
     </div>
   </div>
   <script src="/app.js"></script>
+  <script>
+    // Apply translations when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+      applyTranslations();
+    });
+  </script>
 </body>
 </html>

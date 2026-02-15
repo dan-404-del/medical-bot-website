@@ -9,9 +9,9 @@
 <body>
   <div class="container">
     <nav class="page-nav">
-      <a href="/" class="btn btn-secondary">Home</a>
+      <a href="/" class="btn btn-secondary" data-translate="home">Home</a>
     </nav>
-    <h1>Patient Dashboard</h1>
+    <h1 data-translate="dashboard">Patient Dashboard</h1>
 
     <div id="patient-info" class="patient-info">
       <p>Loading…</p>
@@ -22,7 +22,7 @@
       <p>Loading doctor's remarks...</p>
     </div>
 
-    <h2>Vitals</h2>
+    <h2 data-translate="vitals">Vitals</h2>
     <p style="margin-bottom: 16px; color: #718096;">
       Manual input for now. Ready for Arduino/sensor integration (heart rate, SpO2, etc.).
     </p>
@@ -64,5 +64,11 @@
     </div>
   </div>
   <script src="/app.js"></script>
+  <script>
+    // Apply translations when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+      applyTranslations();
+    });
+  </script>
 </body>
 </html>

@@ -10,8 +10,87 @@
   const API = "/api";
 
   // ---------------------------------------------------------------------------
-  // Session helpers: store fingerprint_id and body_part across pages
+  // GLOBAL STATE & HELPERS
   // ---------------------------------------------------------------------------
+
+  // Language translations
+  const translations = {
+    en: {
+      'app-title': 'Medical Robot Assistant',
+      'patient-registration': 'Patient Registration',
+      'full-name': 'Full Name',
+      'age': 'Age',
+      'sex': 'Sex',
+      'fingerprint-id': 'Fingerprint ID',
+      'register-patient': 'Register Patient',
+      'already-registered': 'Already registered? Login with Fingerprint ID',
+      'new-patient': 'New patient? Register',
+      'doctor-login': 'Doctor login',
+      'pain-selection': 'Pain Selection',
+      'select-body-part': 'Select body part where you feel pain',
+      'pain-questions': 'Pain Questions',
+      'analyze-condition': 'Analyze Condition',
+      'dashboard': 'Dashboard',
+      'vitals': 'Vitals',
+      'medical-history': 'Medical History'
+    },
+    ml: {
+      'app-title': 'മെഡിക്കൽ റോബോട്ട് അസിസ്റ്റന്റ്',
+      'patient-registration': 'രോഗികൾ രജിസ്ട്രേഷൻൻ',
+      'full-name': 'പൂർത്തിയ പേര്',
+      'age': 'പ്രായം',
+      'sex': 'ലിംഗം',
+      'fingerprint-id': 'ഫിംഗർപ്രിന്റ് ഐഡി',
+      'register-patient': 'രോഗികൾ രജിസ്ട്രേഷ഻ൻ',
+      'already-registered': 'ഇതിനക്ക് രജിസ്ട്രേഷപ്പെട്ടുണ്ടോ? ഫിംഗർപ്രിന്റ് ഐഡി ഉപയോഗിക്കുക',
+      'new-patient': 'പുതിയ രോഗികൾ? രജിസ്ട്രേഷ഻ൻ',
+      'doctor-login': 'ഡോക്ടർ ലോഗിൻ',
+      'pain-selection': 'വേദന തിരഞ്ഞൽ',
+      'select-body-part': 'നിങ്ങൾട്ട് വേദന അനുഭവിക്കുന്ന ശരീരഭാഗം തിരഞ്ഞൽ',
+      'pain-questions': 'വേദന ചോദ്യങ്ങൾ',
+      'analyze-condition': 'അവസ്ഥ വിശകലാം വിശകലാം',
+      'dashboard': 'ഡാഷ്ബോർഡ്',
+      'vitals': 'പ്രാണശക്ഷേത്രം',
+      'medical-history': 'മെഡിക്കൽ ചരിത്ര'
+    },
+    hi: {
+      'app-title': 'मेडिकल रोबोट सहायक',
+      'patient-registration': 'मरीज रजिस्ट्रेशन',
+      'full-name': 'पूरा नाम',
+      'age': 'उम्र',
+      'sex': 'लिंग',
+      'fingerprint-id': 'फिंगरप्रिंट आईडी',
+      'register-patient': 'मरीज रजिस्ट्र करें',
+      'already-registered': 'पहले से रजिस्ट्र्ड? फिंगरप्रिंट आईडी से लॉगिन करें',
+      'new-patient': 'नया मरीज? रजिस्ट्र करें',
+      'doctor-login': 'डॉक्टर लॉगिन',
+      'pain-selection': 'दर्द चयन',
+      'select-body-part': 'उस शरीर भाग में दर्द महसूस हो रहा है',
+      'pain-questions': 'दर्द प्रश्न',
+      'analyze-condition': 'स्थिति का विश्लेषण करें',
+      'dashboard': 'डैशबोर्ड',
+      'vitals': 'जीवन संकेत',
+      'medical-history': 'चिकित्स्य इतिहास'
+    }
+  };
+
+  function getCurrentLanguage() {
+    return localStorage.getItem('selectedLanguage') || 'en';
+  }
+
+  function applyTranslations() {
+    const lang = getCurrentLanguage();
+    const elements = document.querySelectorAll('[data-translate]');
+  
+    elements.forEach(element => {
+      const key = element.getAttribute('data-translate');
+      if (translations[lang] && translations[lang][key]) {
+        element.textContent = translations[lang][key];
+      }
+    });
+  }
+
+  // Session helpers
   function getFingerprintId() {
     return sessionStorage.getItem("fingerprint_id") || "";
   }

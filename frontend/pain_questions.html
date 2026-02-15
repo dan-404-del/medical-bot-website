@@ -10,9 +10,9 @@
   <div class="container">
     <nav class="page-nav">
       <a href="/pain_map.html" class="btn btn-secondary">← Back to Pain Selection</a>
-      <a href="/" class="btn btn-secondary">Home</a>
+      <a href="/" class="btn btn-secondary" data-translate="home">Home</a>
     </nav>
-    <h1>Pain Questions</h1>
+    <h1 data-translate="pain-questions">Pain Questions</h1>
     <h2 id="pain-questions-title">Pain location: —</h2>
     <p style="margin-bottom: 20px; color: #718096;">
       Answer all 10 questions. Questions vary by body part.
@@ -25,10 +25,16 @@
         <!-- Questions injected by app.js -->
       </div>
       <div class="form-actions" style="margin-top: 24px;">
-        <button type="submit" class="btn btn-primary">Analyze Condition</button>
+        <button type="submit" class="btn btn-primary" data-translate="analyze-condition">Analyze Condition</button>
       </div>
     </form>
   </div>
   <script src="/app.js"></script>
+  <script>
+    // Apply translations when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+      applyTranslations();
+    });
+  </script>
 </body>
 </html>
