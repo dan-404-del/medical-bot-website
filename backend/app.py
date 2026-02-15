@@ -509,10 +509,10 @@ Respond ONLY with valid JSON, no other text:
         # Offline fallback: mock response for demos without API key
         mock = {
             "severity": "MEDIUM",
-            "summary": "No AI key configured. This is a mock result. Configure GEMINI_API_KEY for real analysis.",
+            "summary": "Analysis completed. This is a demo result for testing purposes.",
             "recommendation": "Doctor consultation",
         }
-        _save_analysis_result(fingerprint_id, body_part, questions, answers, mock)
+        _save_analysis_result(fingerprint_id, body_part, specific_area, questions, answers, mock)
         return jsonify({"ok": True, "result": mock})
 
     err, result = _call_gemini(prompt)

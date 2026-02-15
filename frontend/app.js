@@ -639,7 +639,9 @@
         q.toLowerCase().includes("weakness") ||
         q.toLowerCase().includes("movement") ||
         q.toLowerCase().includes("injury") ||
-        q.toLowerCase().includes("worsening")
+        q.toLowerCase().includes("worsening") ||
+        q.toLowerCase().includes("how long") ||
+        q.toLowerCase().includes("history")
       ) {
         const opts = getOptionsForQuestion(q);
         input = document.createElement("div");
@@ -656,10 +658,20 @@
           input.appendChild(lab);
         });
       } else {
-        input = document.createElement("input");
-        input.type = "text";
-        input.placeholder = "Your answer";
-        input.dataset.q = i;
+        // For any remaining questions, provide Yes/No options instead of text input
+        input = document.createElement("div");
+        input.className = "radio-group";
+        ["Yes", "No"].forEach((opt) => {
+          const lab = document.createElement("label");
+          const radio = document.createElement("input");
+          radio.type = "radio";
+          radio.name = `q${i}`;
+          radio.value = opt;
+          radio.dataset.q = i;
+          lab.appendChild(radio);
+          lab.appendChild(document.createTextNode(" " + opt));
+          input.appendChild(lab);
+        });
       }
 
       div.appendChild(label);
@@ -672,10 +684,20 @@
       if (q.toLowerCase().includes("sudden or gradual")) return ["Sudden", "Gradual"];
       if (q.toLowerCase().includes("spreading")) return ["Yes", "No"];
       if (q.toLowerCase().includes("fever")) return ["Yes", "No"];
-      if (q.toLowerCase().includes("breathing") || q.toLowerCase().includes("numbness") || q.toLowerCase().includes("tingling") || q.toLowerCase().includes("vision") || q.toLowerCase().includes("balance") || q.toLowerCase().includes("nausea") || q.toLowerCase().includes("vomiting") || q.toLowerCase().includes("swelling") || q.toLowerCase().includes("weakness")) return ["Yes", "No"];
+      if (q.toLowerCase().includes("breathing")) return ["Yes", "No"];
+      if (q.toLowerCase().includes("numbness")) return ["Yes", "No"];
+      if (q.toLowerCase().includes("tingling")) return ["Yes", "No"];
+      if (q.toLowerCase().includes("vision")) return ["Yes", "No"];
+      if (q.toLowerCase().includes("balance")) return ["Yes", "No"];
+      if (q.toLowerCase().includes("nausea")) return ["Yes", "No"];
+      if (q.toLowerCase().includes("vomiting")) return ["Yes", "No"];
+      if (q.toLowerCase().includes("swelling")) return ["Yes", "No"];
+      if (q.toLowerCase().includes("weakness")) return ["Yes", "No"];
       if (q.toLowerCase().includes("movement")) return ["Yes", "No"];
       if (q.toLowerCase().includes("injury")) return ["Yes", "No"];
       if (q.toLowerCase().includes("worsening")) return ["Worsening", "Stable"];
+      if (q.toLowerCase().includes("how long")) return ["Less than 1 day", "1-3 days", "4-7 days", "More than 1 week"];
+      if (q.toLowerCase().includes("history")) return ["Yes", "No"];
       return ["Yes", "No"];
     }
 
@@ -688,9 +710,10 @@
           out.push("");
           continue;
         }
-        if (el.type === "number" || el.type === "text") {
+        if (el.type === "number") {
           out.push((el.value || "").trim());
         } else {
+          // Handle radio button groups
           const radio = root.querySelector(`input[name="q${i}"]:checked`);
           out.push(radio ? radio.value : "");
         }
