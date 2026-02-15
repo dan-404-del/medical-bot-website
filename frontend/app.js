@@ -90,6 +90,9 @@
     });
   }
 
+  // Make applyTranslations globally accessible
+  window.applyTranslations = applyTranslations;
+
   // Session helpers
   function getFingerprintId() {
     return sessionStorage.getItem("fingerprint_id") || "";
