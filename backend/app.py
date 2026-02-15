@@ -829,6 +829,302 @@ def save_medical_history(fingerprint_id):
 
 
 # -----------------------------------------------------------------------------
+# API: DOCTOR FEATURES - PDF Export, Reports, Charts
+# -----------------------------------------------------------------------------
+
+from fpdf import FPDF
+import io
+
+class MedicalPDF(FPDF):
+    def header(self):
+        self.set_font('Arial', 'B', 16)
+        self.cell(0, 10, 'Medical Robot Assistant - Patient Report', 0, 1, 'C')
+        self.ln(5)
+        
+    def footer(self):
+        self.set_y(-15)
+        self.set_font('Arial', 'I', 8)
+        self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
+
+@app.route("/api/export_patient_report/<int:fingerprint_id>")
+def export_patient_report(fingerprint_id):
+    """Generate comprehensive PDF report for patient."""
+    conn = get_db()
+    cur = conn.cursor()
+    
+    # Get patient info
+    cur.execute("SELECT * FROM patients WHERE fingerprint_id = ?", (fingerprint_id,))
+    patient = cur.fetchone()
+    
+    if not patient:
+        conn.close()
+        return jsonify({"ok": False, "error": "Patient not found"}), 404
+    
+    # Get vitals history
+    cur.execute(
+        """SELECT * FROM vitals WHERE fingerprint_id = ? ORDER BY recorded_at DESC""",
+        (fingerprint_id,)
+    )
+    vitals = cur.fetchall()
+    
+    # Get pain analysis history
+    cur.execute(
+        """SELECT * FROM pain_analysis WHERE fingerprint_id = ? ORDER BY timestamp DESC""",
+        (fingerprint_id,)
+    )
+    analyses = cur.fetchall()
+    
+    # Get medical history
+    cur.execute(
+        """SELECT * FROM medical_history WHERE fingerprint_id = ?""",
+        (fingerprint_id,)
+    )
+    medical_history = cur.fetchone()
+    
+    conn.close()
+    
+    # Create PDF
+    pdf = MedicalPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    
+    # Patient Information
+    pdf.set_font('Arial', 'B', 14)
+    pdf.cell(0, 10, 'Patient Information', 0, 1)
+    pdf.set_font('Arial', '', 11)
+    pdf.cell(0, 8, f"Name: {patient['name']}", 0, 1)
+    pdf.cell(0, 8, f"Age: {patient['age']} | Sex: {patient['sex']}", 0, 1)
+    pdf.cell(0, 8, f"Fingerprint ID: {patient['fingerprint_id']}", 0, 1)
+    pdf.cell(0, 8, f"Registered: {patient['registered_at']}", 0, 1)
+    pdf.ln(5)
+    
+    # Medical History
+    if medical_history:
+        pdf.set_font('Arial', 'B', 14)
+        pdf.cell(0, 10, 'Medical History', 0, 1)
+        pdf.set_font('Arial', '', 11)
+        pdf.multi_cell(0, 6, f"Current Allergies: {medical_history['current_allergies'] or 'None'}")
+        pdf.multi_cell(0, 6, f"Past Allergies: {medical_history['past_allergies'] or 'None'}")
+        pdf.multi_cell(0, 6, f"Current Medications: {medical_history['current_medications'] or 'None'}")
+        pdf.multi_cell(0, 6, f"Past Medications: {medical_history['past_medications'] or 'None'}")
+        pdf.ln(5)
+    
+    # Vitals Summary
+    if vitals:
+        pdf.set_font('Arial', 'B', 14)
+        pdf.cell(0, 10, 'Vitals History', 0, 1)
+        pdf.set_font('Arial', 'B', 10)
+        pdf.cell(30, 8, 'Date', 1)
+        pdf.cell(25, 8, 'Weight', 1)
+        pdf.cell(25, 8, 'Height', 1)
+        pdf.cell(25, 8, 'BP', 1)
+        pdf.cell(25, 8, 'Heart Rate', 1)
+        pdf.cell(25, 8, 'SpO2', 1)
+        pdf.cell(25, 8, 'Temp', 1)
+        pdf.ln()
+        
+        pdf.set_font('Arial', '', 9)
+        for v in vitals[:10]:  # Last 10 records
+            pdf.cell(30, 8, str(v['recorded_at'])[:10], 1)
+            pdf.cell(25, 8, f"{v['weight'] or '-'} kg", 1)
+            pdf.cell(25, 8, f"{v['height'] or '-'} cm", 1)
+            pdf.cell(25, 8, v['blood_pressure'] or '-', 1)
+            pdf.cell(25, 8, f"{v['heart_rate'] or '-'} bpm", 1)
+            pdf.cell(25, 8, f"{v['spo2'] or '-'}%", 1)
+            pdf.cell(25, 8, f"{v['temperature'] or '-'} C", 1)
+            pdf.ln()
+        pdf.ln(5)
+    
+    # Pain Analysis History
+    if analyses:
+        pdf.add_page()
+        pdf.set_font('Arial', 'B', 14)
+        pdf.cell(0, 10, 'Pain Analysis History', 0, 1)
+        
+        for i, analysis in enumerate(analyses[:5]):  # Last 5 analyses
+            pdf.set_font('Arial', 'B', 11)
+            pdf.cell(0, 8, f"Analysis {i+1} - {analysis['timestamp']}", 0, 1)
+            pdf.set_font('Arial', '', 10)
+            pdf.cell(0, 6, f"Body Part: {analysis['body_part']}", 0, 1)
+            if analysis['specific_area']:
+                pdf.cell(0, 6, f"Specific Area: {analysis['specific_area']}", 0, 1)
+            pdf.cell(0, 6, f"Severity: {analysis['severity']}", 0, 1)
+            pdf.cell(0, 6, f"Recommendation: {analysis['recommendation'] or 'Doctor consultation'}", 0, 1)
+            pdf.multi_cell(0, 6, f"Summary: {analysis['ai_summary'] or 'N/A'}")
+            pdf.ln(3)
+    
+    # Doctor Notes Section
+    pdf.add_page()
+    pdf.set_font('Arial', 'B', 14)
+    pdf.cell(0, 10, 'Doctor Notes & Prescription', 0, 1)
+    pdf.set_font('Arial', '', 11)
+    pdf.cell(0, 10, 'Prescription: _________________________________________________', 0, 1)
+    pdf.ln(5)
+    pdf.cell(0, 10, 'Doctor Signature: ______________________________________________', 0, 1)
+    pdf.cell(0, 10, f'Date: {datetime.now().strftime("%Y-%m-%d %H:%M")}', 0, 1)
+    
+    # Output PDF
+    output = io.BytesIO()
+    pdf.output(output)
+    output.seek(0)
+    
+    return send_file(
+        output,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=f"patient_report_{fingerprint_id}_{datetime.now().strftime('%Y%m%d')}.pdf"
+    )
+
+
+@app.route("/api/get_patient_timeline/<int:fingerprint_id>")
+def get_patient_timeline(fingerprint_id):
+    """Get complete patient history timeline for charts."""
+    conn = get_db()
+    cur = conn.cursor()
+    
+    # Get all vitals ordered by date
+    cur.execute(
+        """SELECT weight, height, blood_pressure, heart_rate, spo2, temperature, recorded_at 
+         FROM vitals WHERE fingerprint_id = ? ORDER BY recorded_at ASC""",
+        (fingerprint_id,)
+    )
+    vitals = [dict(row) for row in cur.fetchall()]
+    
+    # Get all pain analyses
+    cur.execute(
+        """SELECT body_part, specific_area, severity, timestamp 
+         FROM pain_analysis WHERE fingerprint_id = ? ORDER BY timestamp ASC""",
+        (fingerprint_id,)
+    )
+    analyses = [dict(row) for row in cur.fetchall()]
+    
+    conn.close()
+    
+    return jsonify({
+        "ok": True,
+        "timeline": {
+            "vitals": vitals,
+            "pain_analyses": analyses
+        }
+    })
+
+
+@app.route("/api/compare_analyses/<int:fingerprint_id>")
+def compare_analyses(fingerprint_id):
+    """Compare pain analyses over time."""
+    conn = get_db()
+    cur = conn.cursor()
+    
+    cur.execute(
+        """SELECT body_part, specific_area, severity, ai_summary, recommendation, timestamp 
+         FROM pain_analysis WHERE fingerprint_id = ? ORDER BY timestamp DESC""",
+        (fingerprint_id,)
+    )
+    analyses = [dict(row) for row in cur.fetchall()]
+    conn.close()
+    
+    # Group by body part
+    by_body_part = {}
+    for analysis in analyses:
+        part = analysis['body_part']
+        if part not in by_body_part:
+            by_body_part[part] = []
+        by_body_part[part].append(analysis)
+    
+    return jsonify({
+        "ok": True,
+        "analyses": analyses,
+        "by_body_part": by_body_part,
+        "total_count": len(analyses)
+    })
+
+
+@app.route("/api/upload_doctor_document/<int:fingerprint_id>", methods=["POST"])
+def upload_doctor_document(fingerprint_id):
+    """Allow doctors to upload PDF documents for patients."""
+    if 'file' not in request.files:
+        return jsonify({"ok": False, "error": "No file provided"}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"ok": False, "error": "No file selected"}), 400
+    
+    if not file.filename.endswith('.pdf'):
+        return jsonify({"ok": False, "error": "Only PDF files allowed"}), 400
+    
+    # Create uploads directory if not exists
+    uploads_dir = APP_ROOT / "uploads" / str(fingerprint_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Save file with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{timestamp}_{file.filename}"
+    filepath = uploads_dir / filename
+    file.save(filepath)
+    
+    # Store reference in database
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        """CREATE TABLE IF NOT EXISTS doctor_documents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fingerprint_id INTEGER NOT NULL,
+            filename TEXT NOT NULL,
+            filepath TEXT NOT NULL,
+            uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (fingerprint_id) REFERENCES patients(fingerprint_id)
+        )"""
+    )
+    cur.execute(
+        """INSERT INTO doctor_documents (fingerprint_id, filename, filepath) 
+         VALUES (?, ?, ?)""",
+        (fingerprint_id, filename, str(filepath))
+    )
+    conn.commit()
+    conn.close()
+    
+    return jsonify({"ok": True, "message": "File uploaded successfully", "filename": filename})
+
+
+@app.route("/api/get_doctor_documents/<int:fingerprint_id>")
+def get_doctor_documents(fingerprint_id):
+    """Get list of doctor uploaded documents for a patient."""
+    conn = get_db()
+    cur = conn.cursor()
+    
+    # Check if table exists
+    cur.execute("""SELECT name FROM sqlite_master WHERE type='table' AND name='doctor_documents'""")
+    if not cur.fetchone():
+        conn.close()
+        return jsonify({"ok": True, "documents": []})
+    
+    cur.execute(
+        """SELECT id, filename, uploaded_at FROM doctor_documents 
+         WHERE fingerprint_id = ? ORDER BY uploaded_at DESC""",
+        (fingerprint_id,)
+    )
+    documents = [dict(row) for row in cur.fetchall()]
+    conn.close()
+    
+    return jsonify({"ok": True, "documents": documents})
+
+
+@app.route("/api/download_document/<int:doc_id>")
+def download_document(doc_id):
+    """Download a doctor uploaded document."""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT filepath, filename FROM doctor_documents WHERE id = ?", (doc_id,))
+    row = cur.fetchone()
+    conn.close()
+    
+    if not row:
+        return jsonify({"ok": False, "error": "Document not found"}), 404
+    
+    return send_file(row['filepath'], as_attachment=True, download_name=row['filename'])
+
+
+# -----------------------------------------------------------------------------
 # MAIN
 # -----------------------------------------------------------------------------
 

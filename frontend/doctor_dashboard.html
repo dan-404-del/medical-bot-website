@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Doctor Dashboard – Medical Triage</title>
   <link rel="stylesheet" href="/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <div class="container">
@@ -25,15 +26,77 @@
     </ul>
 
     <div id="patient-detail" class="hidden">
-      <!-- On selection: medical history form injected by app.js -->
-      <button id="delete-patient-btn" class="btn btn-danger hidden" style="margin-top: 20px;">Delete Patient</button>
+      <!-- Patient Actions Bar -->
+      <div class="doctor-actions" style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 24px; border: 2px solid #e2e8f0;">
+        <h3 style="margin-bottom: 15px;">Doctor Actions</h3>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+          <button id="export-report-btn" class="btn btn-primary">📄 Export Patient Report (PDF)</button>
+          <button id="print-prescription-btn" class="btn btn-secondary">🖨️ Print Prescription</button>
+          <button id="view-timeline-btn" class="btn btn-secondary">📊 View Vitals Timeline</button>
+          <button id="compare-analyses-btn" class="btn btn-secondary">🔍 Compare Pain Analyses</button>
+          <button id="delete-patient-btn" class="btn btn-danger">🗑️ Delete Patient</button>
+        </div>
+      </div>
+
+      <!-- Document Upload Section -->
+      <div class="document-upload" style="background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 24px; border: 2px solid #3182ce;">
+        <h3 style="margin-bottom: 15px; color: #3182ce;">📎 Upload Medical Documents (PDF Only)</h3>
+        <form id="upload-document-form" enctype="multipart/form-data">
+          <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;">
+            <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 200px;">
+              <input type="file" id="document-file" name="file" accept=".pdf" required>
+            </div>
+            <button type="submit" class="btn btn-primary" style="margin-top: 0;">Upload Document</button>
+          </div>
+        </form>
+        <div id="upload-msg" class="msg" style="margin-top: 10px;"></div>
+        <div id="uploaded-documents" style="margin-top: 15px;">
+          <h4>Uploaded Documents:</h4>
+          <ul id="documents-list" style="list-style: none; padding: 0;">
+            <!-- Documents filled by app.js -->
+          </ul>
+        </div>
+      </div>
+
+      <!-- Medical History Form -->
       <div id="medical-history-content"></div>
 
+      <!-- Vitals Charts Section -->
+      <div id="vitals-charts-container" style="margin-top: 30px; background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <h2>Vitals Trends & Charts</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-top: 20px;">
+          <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
+            <h4>Weight Trend</h4>
+            <canvas id="weight-chart"></canvas>
+          </div>
+          <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
+            <h4>Blood Pressure</h4>
+            <canvas id="bp-chart"></canvas>
+          </div>
+          <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
+            <h4>Heart Rate & SpO2</h4>
+            <canvas id="heart-chart"></canvas>
+          </div>
+          <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
+            <h4>Temperature</h4>
+            <canvas id="temp-chart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vitals History Table -->
       <div id="patient-vitals-container" style="margin-top: 30px;">
         <h2>Vitals History</h2>
         <div id="patient-vitals-list"></div>
       </div>
 
+      <!-- Pain Analysis Comparison -->
+      <div id="pain-comparison-container" style="margin-top: 30px; background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <h2>Pain Analysis Comparison</h2>
+        <div id="pain-comparison-content" style="margin-top: 15px;"></div>
+      </div>
+
+      <!-- AI Triage History -->
       <div id="patient-analyses-container" style="margin-top: 30px;">
         <h2>AI Triage History</h2>
         <div id="patient-analyses-list"></div>

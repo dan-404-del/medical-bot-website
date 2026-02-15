@@ -959,8 +959,18 @@
 
     let allPatients = [];
     let selectedFid = null;
+    let currentPatient = null;
+
+    // Chart instances storage
+    let charts = {};
 
     const deleteBtn = document.getElementById("delete-patient-btn");
+    const exportBtn = document.getElementById("export-report-btn");
+    const printBtn = document.getElementById("print-prescription-btn");
+    const timelineBtn = document.getElementById("view-timeline-btn");
+    const compareBtn = document.getElementById("compare-analyses-btn");
+    const uploadForm = document.getElementById("upload-document-form");
+
     if (deleteBtn) {
       deleteBtn.onclick = async () => {
         if (!selectedFid) return;
@@ -972,12 +982,139 @@
           alert("Patient deleted successfully.");
           detail.classList.add("hidden");
           selectedFid = null;
-          deleteBtn.classList.add("hidden"); // Hide button after deletion
-          loadPatients(); // Reload the patient list
+          currentPatient = null;
+          loadPatients();
         } catch (err) {
           alert(err.message || "Failed to delete patient.");
         }
       };
+    }
+
+    // Export PDF Report
+    if (exportBtn) {
+      exportBtn.onclick = () => {
+        if (!selectedFid) return alert("Please select a patient first");
+        window.open(`${API}/export_patient_report/${selectedFid}`, '_blank');
+      };
+    }
+
+    // Print Prescription
+    if (printBtn) {
+      printBtn.onclick = () => {
+        if (!selectedFid || !currentPatient) return alert("Please select a patient first");
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+          <html>
+          <head><title>Prescription - ${currentPatient.name}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
+            .header { text-align: center; border-bottom: 2px solid #3182ce; padding-bottom: 20px; margin-bottom: 30px; }
+            .patient-info { background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+            .prescription-box { border: 2px solid #e2e8f0; padding: 30px; min-height: 300px; margin-bottom: 30px; }
+            .signature { margin-top: 50px; }
+            .line { border-bottom: 1px solid #000; width: 300px; margin-top: 10px; }
+            @media print { .no-print { display: none; } }
+          </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>🏥 Medical Robot Assistant</h1>
+              <h2>Doctor Prescription</h2>
+            </div>
+            <div class="patient-info">
+              <h3>Patient Information</h3>
+              <p><strong>Name:</strong> ${currentPatient.name}</p>
+              <p><strong>Age:</strong> ${currentPatient.age} years</p>
+              <p><strong>Sex:</strong> ${currentPatient.sex}</p>
+              <p><strong>Fingerprint ID:</strong> ${currentPatient.fingerprint_id}</p>
+              <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+            </div>
+            <div class="prescription-box">
+              <h3>Rx - Prescription</h3>
+              <p style="color: #666;">(Write prescription here...)</p>
+              <div style="margin-top: 100px;">
+                <p>Doctor's Notes: ___________________________________________</p>
+                <p style="margin-top: 20px;">Diagnosis: ___________________________________________</p>
+                <p style="margin-top: 20px;">Medications: ___________________________________________</p>
+                <p style="margin-top: 20px;">Instructions: ___________________________________________</p>
+              </div>
+            </div>
+            <div class="signature">
+              <p><strong>Doctor's Signature:</strong></p>
+              <div class="line"></div>
+              <p style="margin-top: 10px;">Date: _______________</p>
+            </div>
+            <button class="no-print" onclick="window.print()" style="position: fixed; top: 20px; right: 20px; padding: 15px 30px; background: #3182ce; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">🖨️ Print Prescription</button>
+          </body>
+          </html>
+        `);
+        printWindow.document.close();
+      };
+    }
+
+    // Document Upload
+    if (uploadForm) {
+      uploadForm.onsubmit = async (e) => {
+        e.preventDefault();
+        if (!selectedFid) return alert("Please select a patient first");
+        
+        const fileInput = document.getElementById("document-file");
+        const msgDiv = document.getElementById("upload-msg");
+        
+        if (!fileInput.files || !fileInput.files[0]) {
+          msgDiv.textContent = "Please select a PDF file";
+          msgDiv.className = "msg error";
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", fileInput.files[0]);
+
+        try {
+          const response = await fetch(`${API}/upload_doctor_document/${selectedFid}`, {
+            method: "POST",
+            body: formData
+          });
+          const result = await response.json();
+          
+          if (result.ok) {
+            msgDiv.textContent = "Document uploaded successfully!";
+            msgDiv.className = "msg success";
+            fileInput.value = "";
+            loadDocuments(selectedFid);
+          } else {
+            msgDiv.textContent = result.error || "Upload failed";
+            msgDiv.className = "msg error";
+          }
+        } catch (err) {
+          msgDiv.textContent = "Upload failed: " + err.message;
+          msgDiv.className = "msg error";
+        }
+      };
+    }
+
+    // Load documents for patient
+    async function loadDocuments(fid) {
+      const docsList = document.getElementById("documents-list");
+      if (!docsList) return;
+      
+      try {
+        const r = await fetchJSON(`${API}/get_doctor_documents/${fid}`);
+        const docs = r.documents || [];
+        
+        if (docs.length === 0) {
+          docsList.innerHTML = "<li style='color: #666;'>No documents uploaded yet</li>";
+        } else {
+          docsList.innerHTML = docs.map(d => `
+            <li style="padding: 10px; background: #f7fafc; border-radius: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+              <span>📄 ${escapeHtml(d.filename)}<br><small style="color: #666;">${d.uploaded_at}</small></span>
+              <a href="${API}/download_document/${d.id}" class="btn btn-secondary" style="padding: 8px 16px; font-size: 14px;">Download</a>
+            </li>
+          `).join("");
+        }
+      } catch (err) {
+        docsList.innerHTML = "<li style='color: red;'>Failed to load documents</li>";
+      }
     }
 
     async function loadPatients() {
@@ -1018,16 +1155,206 @@
 
     if (search) search.addEventListener("input", filterList);
 
+    // Load and display charts
+    async function loadVitalsCharts(fid) {
+      try {
+        const r = await fetchJSON(`${API}/get_patient_timeline/${fid}`);
+        const vitals = r.timeline.vitals || [];
+        
+        if (vitals.length === 0) {
+          // No data - hide charts or show message
+          return;
+        }
+
+        const dates = vitals.map(v => v.recorded_at ? v.recorded_at.substring(0, 10) : '');
+        
+        // Destroy existing charts
+        Object.values(charts).forEach(chart => chart.destroy());
+        charts = {};
+
+        // Weight Chart
+        const weightCtx = document.getElementById('weight-chart');
+        if (weightCtx && vitals.some(v => v.weight)) {
+          charts.weight = new Chart(weightCtx, {
+            type: 'line',
+            data: {
+              labels: dates,
+              datasets: [{
+                label: 'Weight (kg)',
+                data: vitals.map(v => v.weight),
+                borderColor: '#3182ce',
+                backgroundColor: 'rgba(49, 130, 206, 0.1)',
+                fill: true,
+                tension: 0.4
+              }]
+            },
+            options: { responsive: true, maintainAspectRatio: true }
+          });
+        }
+
+        // Blood Pressure Chart
+        const bpCtx = document.getElementById('bp-chart');
+        if (bpCtx) {
+          const bpData = vitals.map(v => {
+            if (!v.blood_pressure) return null;
+            const parts = v.blood_pressure.split('/');
+            return parts[0] ? parseInt(parts[0]) : null;
+          }).filter(v => v !== null);
+          
+          if (bpData.length > 0) {
+            charts.bp = new Chart(bpCtx, {
+              type: 'line',
+              data: {
+                labels: dates.slice(0, bpData.length),
+                datasets: [{
+                  label: 'Systolic BP',
+                  data: bpData,
+                  borderColor: '#e53e3e',
+                  backgroundColor: 'rgba(229, 62, 62, 0.1)',
+                  fill: true,
+                  tension: 0.4
+                }]
+              },
+              options: { responsive: true, maintainAspectRatio: true }
+            });
+          }
+        }
+
+        // Heart Rate & SpO2 Chart
+        const heartCtx = document.getElementById('heart-chart');
+        if (heartCtx) {
+          const datasets = [];
+          if (vitals.some(v => v.heart_rate)) {
+            datasets.push({
+              label: 'Heart Rate (bpm)',
+              data: vitals.map(v => v.heart_rate),
+              borderColor: '#38a169',
+              backgroundColor: 'rgba(56, 161, 105, 0.1)',
+              fill: true,
+              tension: 0.4
+            });
+          }
+          if (vitals.some(v => v.spo2)) {
+            datasets.push({
+              label: 'SpO2 (%)',
+              data: vitals.map(v => v.spo2),
+              borderColor: '#3182ce',
+              backgroundColor: 'rgba(49, 130, 206, 0.1)',
+              fill: true,
+              tension: 0.4,
+              yAxisID: 'y1'
+            });
+          }
+          
+          if (datasets.length > 0) {
+            charts.heart = new Chart(heartCtx, {
+              type: 'line',
+              data: { labels: dates, datasets },
+              options: { 
+                responsive: true, 
+                maintainAspectRatio: true,
+                scales: {
+                  y1: { position: 'right', min: 90, max: 100 }
+                }
+              }
+            });
+          }
+        }
+
+        // Temperature Chart
+        const tempCtx = document.getElementById('temp-chart');
+        if (tempCtx && vitals.some(v => v.temperature)) {
+          charts.temp = new Chart(tempCtx, {
+            type: 'line',
+            data: {
+              labels: dates,
+              datasets: [{
+                label: 'Temperature (°C)',
+                data: vitals.map(v => v.temperature),
+                borderColor: '#d69e2e',
+                backgroundColor: 'rgba(214, 158, 46, 0.1)',
+                fill: true,
+                tension: 0.4
+              }]
+            },
+            options: { 
+              responsive: true, 
+              maintainAspectRatio: true,
+              scales: {
+                y: { min: 35, max: 42 }
+              }
+            }
+          });
+        }
+      } catch (err) {
+        console.error("Failed to load charts:", err);
+      }
+    }
+
+    // Load pain comparison
+    async function loadPainComparison(fid) {
+      const container = document.getElementById('pain-comparison-content');
+      if (!container) return;
+      
+      try {
+        const r = await fetchJSON(`${API}/compare_analyses/${fid}`);
+        const analyses = r.analyses || [];
+        const byBodyPart = r.by_body_part || {};
+        
+        if (analyses.length === 0) {
+          container.innerHTML = "<p style='color: #666;'>No pain analyses recorded yet</p>";
+          return;
+        }
+
+        let html = `<p><strong>Total Analyses:</strong> ${r.total_count}</p>`;
+        
+        // Group by body part
+        Object.keys(byBodyPart).forEach(part => {
+          const partAnalyses = byBodyPart[part];
+          html += `
+            <div style="margin-top: 20px; padding: 15px; background: #f7fafc; border-radius: 8px; border-left: 4px solid #3182ce;">
+              <h4>${escapeHtml(part)} (${partAnalyses.length} analyses)</h4>
+          `;
+          
+          partAnalyses.forEach((a, idx) => {
+            const severityColor = a.severity === 'HIGH' || a.severity === 'EMERGENCY' ? '#e53e3e' : 
+                                  a.severity === 'MEDIUM' ? '#d69e2e' : '#38a169';
+            html += `
+              <div style="margin-top: 10px; padding: 10px; background: white; border-radius: 6px;">
+                <p style="margin: 0;"><strong>Analysis #${idx + 1}</strong> - ${a.timestamp}</p>
+                <p style="margin: 5px 0;">Severity: <span style="color: ${severityColor}; font-weight: bold;">${a.severity}</span></p>
+                ${a.specific_area ? `<p style="margin: 5px 0;">Specific Area: ${escapeHtml(a.specific_area)}</p>` : ''}
+                <p style="margin: 5px 0; font-size: 14px; color: #666;">${escapeHtml(a.ai_summary || 'No summary')}</p>
+              </div>
+            `;
+          });
+          
+          html += `</div>`;
+        });
+        
+        container.innerHTML = html;
+      } catch (err) {
+        container.innerHTML = "<p style='color: red;'>Failed to load pain comparison</p>";
+      }
+    }
+
     async function selectPatient(fid) {
       selectedFid = fid;
+      currentPatient = allPatients.find(p => p.fingerprint_id === fid);
+      
       list.querySelectorAll("li").forEach((el) => el.classList.toggle("selected", parseInt(el.dataset.fid, 10) === fid));
       detail.classList.remove("hidden");
-      if (deleteBtn) deleteBtn.classList.remove("hidden");
 
-      // Temporarily clear detail while loading, but keep the delete button intact
-      const currentDetailContent = detail.innerHTML;
-      detail.innerHTML = "<p>Loading…</p>" + (deleteBtn ? deleteBtn.outerHTML : "");
+      // Load documents
+      loadDocuments(fid);
+      
+      // Load charts
+      loadVitalsCharts(fid);
+      
+      // Load pain comparison
+      loadPainComparison(fid);
 
+      // Keep the rest of the existing functionality
       try {
         const r = await fetchJSON(`${API}/get_medical_history/${fid}`);
         const h = r.history || {};
@@ -1038,45 +1365,12 @@
         const analysesR = await fetchJSON(`${API}/get_patient_analyses/${fid}`);
         const analyses = analysesR.analyses || [];
 
-        let vitalsHtml = '<h3>No vitals recorded.</h3>';
-        if (vitals.length > 0) {
-            vitalsHtml = '<div class="vitals-list">';
-            vitals.forEach(v => {
-                vitalsHtml += `
-                    <div class="vitals-item" style="background: #f7fafc; padding: 12px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #e2e8f0;">
-                        <p><strong>Timestamp:</strong> ${v.timestamp}</p>
-                        <p><strong>Weight:</strong> ${v.weight || 'N/A'} kg</p>
-                        <p><strong>Height:</strong> ${v.height || 'N/A'} cm</p>
-                        <p><strong>Heart Rate:</strong> ${v.heart_rate || 'N/A'} bpm</p>
-                        <p><strong>SpO2:</strong> ${v.spo2 || 'N/A'} %</p>
-                        <p><strong>Temperature:</strong> ${v.temperature || 'N/A'} °C</p>
-                        <p><strong>Blood Pressure:</strong> ${escapeHtml(v.blood_pressure || 'N/A')}</p>
-                    </div>
-                `;
-            });
-            vitalsHtml += '</div>';
-        }
+        const historyContent = document.getElementById("medical-history-content");
+        const vitalsContainer = document.getElementById("patient-vitals-list");
+        const analysesContainer = document.getElementById("patient-analyses-list");
 
-        let analysesHtml = '<h3>No AI analyses recorded.</h3>';
-        if (analyses.length > 0) {
-            analysesHtml = '<div class="analyses-list">';
-            analyses.forEach(a => {
-                const severityClass = `severity-${(a.severity || 'MEDIUM').toUpperCase()}`;
-                analysesHtml += `
-                    <div class="analyses-item ${severityClass}" style="padding: 12px; border-radius: 6px; margin-bottom: 8px; border: 1px solid;">
-                        <p><strong>Timestamp:</strong> ${a.timestamp}</p>
-                        <p><strong>Body Part:</strong> ${escapeHtml(a.body_part)}</p>
-                        <p><strong>Severity:</strong> <span class="${severityClass}">${a.severity}</span></p>
-                        <p><strong>Summary:</strong> ${escapeHtml(a.ai_summary || 'N/A')}</p>
-                        <p><strong>Recommendation:</strong> ${escapeHtml(a.recommendation || 'N/A')}</p>
-                    </div>
-                `;
-            });
-            analysesHtml += '</div>';
-        }
-
-        detail.innerHTML = `
-          <div id="medical-history-content">
+        if (historyContent) {
+          historyContent.innerHTML = `
             <h2>Medical history – Patient ${fid}</h2>
             <form id="medical-history-form" class="medical-history-form">
               <div class="form-group">
@@ -1098,46 +1392,81 @@
               <div id="history-msg" class="msg"></div>
               <button type="submit" class="btn btn-primary">Save medical history</button>
             </form>
+          `;
 
-            <div style="margin-top: 30px;">
-              <h2>Vitals History</h2>
-              ${vitalsHtml}
-            </div>
-
-            <div style="margin-top: 30px;">
-              <h2>AI Triage History</h2>
-              ${analysesHtml}
-            </div>
-          </div>
-        `;
-
-        const f = document.getElementById("medical-history-form");
-        const m = document.getElementById("history-msg");
-        if (f) {
-          f.addEventListener("submit", async (ev) => {
-            ev.preventDefault();
-            m.textContent = "";
-            m.className = "msg";
-            try {
-              await fetchJSON(`${API}/save_medical_history/${fid}`, {
-                method: "POST",
-                body: JSON.stringify({
-                  current_allergies: document.getElementById("curr_allergies").value,
-                  past_allergies: document.getElementById("past_allergies").value,
-                  current_medications: document.getElementById("curr_medications").value,
-                  past_medications: document.getElementById("past_medications").value,
-                }),
-              });
-              m.textContent = "Saved.";
-              m.className = "msg success";
-            } catch (err) {
-              m.textContent = err.message || "Save failed.";
-              m.className = "msg error";
-            }
-          });
+          const f = document.getElementById("medical-history-form");
+          const m = document.getElementById("history-msg");
+          if (f) {
+            f.addEventListener("submit", async (ev) => {
+              ev.preventDefault();
+              m.textContent = "";
+              m.className = "msg";
+              try {
+                await fetchJSON(`${API}/save_medical_history/${fid}`, {
+                  method: "POST",
+                  body: JSON.stringify({
+                    current_allergies: document.getElementById("curr_allergies").value,
+                    past_allergies: document.getElementById("past_allergies").value,
+                    current_medications: document.getElementById("curr_medications").value,
+                    past_medications: document.getElementById("past_medications").value,
+                  }),
+                });
+                m.textContent = "Saved.";
+                m.className = "msg success";
+              } catch (err) {
+                m.textContent = err.message || "Save failed.";
+                m.className = "msg error";
+              }
+            });
+          }
         }
+
+        if (vitalsContainer) {
+          let vitalsHtml = '<h3>No vitals recorded.</h3>';
+          if (vitals.length > 0) {
+            vitalsHtml = '<div class="vitals-list">';
+            vitals.forEach(v => {
+              vitalsHtml += `
+                <div class="vitals-item" style="background: #f7fafc; padding: 12px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #e2e8f0;">
+                  <p><strong>Timestamp:</strong> ${v.timestamp}</p>
+                  <p><strong>Weight:</strong> ${v.weight || 'N/A'} kg</p>
+                  <p><strong>Height:</strong> ${v.height || 'N/A'} cm</p>
+                  <p><strong>Heart Rate:</strong> ${v.heart_rate || 'N/A'} bpm</p>
+                  <p><strong>SpO2:</strong> ${v.spo2 || 'N/A'} %</p>
+                  <p><strong>Temperature:</strong> ${v.temperature || 'N/A'} °C</p>
+                  <p><strong>Blood Pressure:</strong> ${escapeHtml(v.blood_pressure || 'N/A')}</p>
+                </div>
+              `;
+            });
+            vitalsHtml += '</div>';
+          }
+          vitalsContainer.innerHTML = vitalsHtml;
+        }
+
+        if (analysesContainer) {
+          let analysesHtml = '<h3>No AI analyses recorded.</h3>';
+          if (analyses.length > 0) {
+            analysesHtml = '<div class="analyses-list">';
+            analyses.forEach(a => {
+              const severityClass = `severity-${(a.severity || 'MEDIUM').toUpperCase()}`;
+              analysesHtml += `
+                <div class="analyses-item ${severityClass}" style="padding: 12px; border-radius: 6px; margin-bottom: 8px; border: 1px solid;">
+                  <p><strong>Timestamp:</strong> ${a.timestamp}</p>
+                  <p><strong>Body Part:</strong> ${escapeHtml(a.body_part)}</p>
+                  ${a.specific_area ? `<p><strong>Specific Area:</strong> ${escapeHtml(a.specific_area)}</p>` : ''}
+                  <p><strong>Severity:</strong> <span class="${severityClass}">${a.severity}</span></p>
+                  <p><strong>Summary:</strong> ${escapeHtml(a.ai_summary || 'N/A')}</p>
+                  <p><strong>Recommendation:</strong> ${escapeHtml(a.recommendation || 'N/A')}</p>
+                </div>
+              `;
+            });
+            analysesHtml += '</div>';
+          }
+          analysesContainer.innerHTML = analysesHtml;
+        }
+
       } catch (err) {
-        detail.innerHTML = "<p>Failed to load history.</p>";
+        console.error("Failed to load patient data:", err);
       }
     }
 

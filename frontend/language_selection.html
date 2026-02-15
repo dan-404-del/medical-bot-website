@@ -37,21 +37,7 @@
     </div>
 
     <script>
-        // Language translations
-        const translations = {
-            en: {
-                'app-title': 'Medical Robot Assistant',
-                'select-language': 'Please select your preferred language'
-            },
-            ml: {
-                'app-title': 'മെഡിക്കൽ റോബോട്ട് അസിസ്റ്റന്റ്',
-                'select-language': 'ദയവായി നിങ്ങളുടെ ഇഷ്ടഭാഷ തിരഞ്ഞെടുക്കുക'
-            },
-            hi: {
-                'app-title': 'मेडिकल रोबोट सहायक',
-                'select-language': 'कृपया अपनी पसंदीदा भाषा चुनें'
-            }
-        };
+        // Language translations are now in app.js
 
         function selectLanguage(lang) {
             localStorage.setItem('selectedLanguage', lang);
@@ -60,7 +46,7 @@
         }
 
         // Apply translations based on stored language
-        function applyTranslations(lang) {
+        function applyTranslationsToPage(lang) {
             const elements = document.querySelectorAll('[id]');
             elements.forEach(element => {
                 const key = element.id;
@@ -73,7 +59,7 @@
         // Check if language is already selected
         const storedLang = localStorage.getItem('selectedLanguage');
         if (storedLang) {
-            applyTranslations(storedLang);
+            applyTranslationsToPage(storedLang);
         }
     </script>
 
