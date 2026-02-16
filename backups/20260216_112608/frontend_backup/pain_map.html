@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pain Selection – Medical Triage</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="container">
+    <nav class="page-nav">
+      <a href="/dashboard.html" class="btn btn-secondary">← Back to Dashboard</a>
+      <a href="/" class="btn btn-secondary">Home</a>
+    </nav>
+    <h1>Pain Selection</h1>
+    <p style="margin-bottom: 20px; color: #718096;">
+      Select <strong>one</strong> body part where you feel pain. Gender-specific diagram: use male/female based on patient sex.
+    </p>
+
+    <div id="pain-map-msg" class="msg"></div>
+
+    <div class="pain-map-wrapper">
+      <p id="diagram-label" style="font-weight: 600; margin-bottom: 12px;">Body diagram</p>
+      <div class="body-diagram-container" style="position: relative; width: 280px; height: 450px; margin: 0 auto;">
+        <!-- Placeholder for the 2D body diagram image -->
+        <img id="body-diagram-img" src="/body_diagram.png" alt="Human Body Diagram" style="width: 100%; height: 100%; object-fit: contain;" />
+        <!-- Overlay for clickable body parts (will be dynamically generated/handled by JS) -->
+        <div id="body-diagram-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></div>
+      </div>
+    </div>
+
+    <div style="margin-top: 18px;">
+      <p style="margin-bottom: 10px; font-weight: 600;">Quick select (if the diagram isn’t visible):</p>
+      <div id="body-part-buttons" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
+    </div>
+
+    <div class="nav-links" style="margin-top: 24px;">
+      <button type="button" id="btn-pain-next" class="btn btn-primary">Continue to Questions</button>
+      <button type="button" id="btn-skip-pain" class="btn btn-secondary">Skip Pain Analysis</button>
+    </div>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
