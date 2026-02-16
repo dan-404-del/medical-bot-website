@@ -9,9 +9,11 @@ All data stored locally. AI calls go to Gemini API (requires internet).
 import os
 import sqlite3
 import json
+import io
 from pathlib import Path
+from datetime import datetime
 
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, send_file
 
 # -----------------------------------------------------------------------------
 # CONFIGURATION
@@ -124,6 +126,18 @@ def init_db():
     # Add specific_area column if missing (for existing DBs)
     try:
         cur.execute("ALTER TABLE pain_analysis ADD COLUMN specific_area TEXT")
+    except sqlite3.OperationalError:
+        pass
+    
+    # Add image_path column for body part images if missing
+    try:
+        cur.execute("ALTER TABLE pain_analysis ADD COLUMN image_path TEXT")
+    except sqlite3.OperationalError:
+        pass
+    
+    # Add recommendation column if missing
+    try:
+        cur.execute("ALTER TABLE pain_analysis ADD COLUMN recommendation TEXT")
     except sqlite3.OperationalError:
         pass
 
@@ -900,7 +914,7 @@ def export_patient_report(fingerprint_id):
     
     # Get vitals history
     cur.execute(
-        """SELECT * FROM vitals WHERE fingerprint_id = ? ORDER BY recorded_at DESC""",
+        """SELECT * FROM vitals WHERE fingerprint_id = ? ORDER BY timestamp DESC""",
         (fingerprint_id,)
     )
     vitals = cur.fetchall()
@@ -963,7 +977,7 @@ def export_patient_report(fingerprint_id):
         
         pdf.set_font('Arial', '', 9)
         for v in vitals[:10]:  # Last 10 records
-            pdf.cell(30, 8, str(v['recorded_at'])[:10], 1)
+            pdf.cell(30, 8, str(v['timestamp'])[:10], 1)
             pdf.cell(25, 8, f"{v['weight'] or '-'} kg", 1)
             pdf.cell(25, 8, f"{v['height'] or '-'} cm", 1)
             pdf.cell(25, 8, v['blood_pressure'] or '-', 1)
@@ -1017,64 +1031,82 @@ def export_patient_report(fingerprint_id):
 @app.route("/api/get_patient_timeline/<int:fingerprint_id>")
 def get_patient_timeline(fingerprint_id):
     """Get complete patient history timeline for charts."""
-    conn = get_db()
-    cur = conn.cursor()
-    
-    # Get all vitals ordered by date
-    cur.execute(
-        """SELECT weight, height, blood_pressure, heart_rate, spo2, temperature, recorded_at 
-         FROM vitals WHERE fingerprint_id = ? ORDER BY recorded_at ASC""",
-        (fingerprint_id,)
-    )
-    vitals = [dict(row) for row in cur.fetchall()]
-    
-    # Get all pain analyses
-    cur.execute(
-        """SELECT body_part, specific_area, severity, timestamp 
-         FROM pain_analysis WHERE fingerprint_id = ? ORDER BY timestamp ASC""",
-        (fingerprint_id,)
-    )
-    analyses = [dict(row) for row in cur.fetchall()]
-    
-    conn.close()
-    
-    return jsonify({
-        "ok": True,
-        "timeline": {
-            "vitals": vitals,
-            "pain_analyses": analyses
-        }
-    })
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        
+        # Verify patient exists
+        cur.execute("SELECT fingerprint_id FROM patients WHERE fingerprint_id = ?", (fingerprint_id,))
+        if not cur.fetchone():
+            conn.close()
+            return jsonify({"ok": False, "error": "Patient not found"}), 404
+        
+        # Get all vitals ordered by date
+        cur.execute(
+            """SELECT weight, height, blood_pressure, heart_rate, spo2, temperature, timestamp 
+             FROM vitals WHERE fingerprint_id = ? ORDER BY timestamp ASC""",
+            (fingerprint_id,)
+        )
+        vitals = [dict(row) for row in cur.fetchall()]
+        
+        # Get all pain analyses
+        cur.execute(
+            """SELECT body_part, specific_area, severity, timestamp 
+             FROM pain_analysis WHERE fingerprint_id = ? ORDER BY timestamp ASC""",
+            (fingerprint_id,)
+        )
+        analyses = [dict(row) for row in cur.fetchall()]
+        
+        conn.close()
+        
+        return jsonify({
+            "ok": True,
+            "timeline": {
+                "vitals": vitals,
+                "pain_analyses": analyses
+            }
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 @app.route("/api/compare_analyses/<int:fingerprint_id>")
 def compare_analyses(fingerprint_id):
     """Compare pain analyses over time."""
-    conn = get_db()
-    cur = conn.cursor()
-    
-    cur.execute(
-        """SELECT body_part, specific_area, severity, ai_summary, recommendation, timestamp 
-         FROM pain_analysis WHERE fingerprint_id = ? ORDER BY timestamp DESC""",
-        (fingerprint_id,)
-    )
-    analyses = [dict(row) for row in cur.fetchall()]
-    conn.close()
-    
-    # Group by body part
-    by_body_part = {}
-    for analysis in analyses:
-        part = analysis['body_part']
-        if part not in by_body_part:
-            by_body_part[part] = []
-        by_body_part[part].append(analysis)
-    
-    return jsonify({
-        "ok": True,
-        "analyses": analyses,
-        "by_body_part": by_body_part,
-        "total_count": len(analyses)
-    })
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        
+        # Verify patient exists
+        cur.execute("SELECT fingerprint_id FROM patients WHERE fingerprint_id = ?", (fingerprint_id,))
+        if not cur.fetchone():
+            conn.close()
+            return jsonify({"ok": False, "error": "Patient not found"}), 404
+        
+        cur.execute(
+            """SELECT body_part, specific_area, severity, ai_summary, recommendation, timestamp 
+             FROM pain_analysis WHERE fingerprint_id = ? ORDER BY timestamp DESC""",
+            (fingerprint_id,)
+        )
+        analyses = [dict(row) for row in cur.fetchall()]
+        conn.close()
+        
+        # Group by body part
+        by_body_part = {}
+        for analysis in analyses:
+            part = analysis['body_part']
+            if part not in by_body_part:
+                by_body_part[part] = []
+            by_body_part[part].append(analysis)
+        
+        return jsonify({
+            "ok": True,
+            "analyses": analyses,
+            "by_body_part": by_body_part,
+            "total_count": len(analyses)
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 @app.route("/api/upload_doctor_document/<int:fingerprint_id>", methods=["POST"])
@@ -1160,6 +1192,82 @@ def download_document(doc_id):
         return jsonify({"ok": False, "error": "Document not found"}), 404
     
     return send_file(row['filepath'], as_attachment=True, download_name=row['filename'])
+
+
+@app.route("/api/upload_body_part_image/<int:fingerprint_id>", methods=["POST"])
+def upload_body_part_image(fingerprint_id):
+    """Upload zoomed-in body part image for pain analysis."""
+    if 'file' not in request.files:
+        return jsonify({"ok": False, "error": "No file provided"}), 400
+    
+    if 'pain_id' not in request.form:
+        return jsonify({"ok": False, "error": "No pain_id provided"}), 400
+    
+    file = request.files['file']
+    pain_id = request.form.get('pain_id')
+    
+    if file.filename == '':
+        return jsonify({"ok": False, "error": "No file selected"}), 400
+    
+    # Allow PNG, JPG, JPEG only
+    allowed_extensions = {'png', 'jpg', 'jpeg'}
+    file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+    if file_ext not in allowed_extensions:
+        return jsonify({"ok": False, "error": "Only PNG, JPG, JPEG files allowed"}), 400
+    
+    # Create uploads directory for body part images
+    uploads_dir = APP_ROOT / "uploads" / "body_parts" / str(fingerprint_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Save file with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"pain_{pain_id}_{timestamp}.{file_ext}"
+    filepath = uploads_dir / filename
+    file.save(filepath)
+    
+    # Update pain_analysis with image path
+    conn = get_db()
+    cur = conn.cursor()
+    
+    try:
+        cur.execute(
+            """UPDATE pain_analysis SET image_path = ? WHERE id = ? AND fingerprint_id = ?""",
+            (str(filepath), pain_id, fingerprint_id)
+        )
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            "ok": True, 
+            "message": "Image uploaded successfully",
+            "filename": filename,
+            "image_path": str(filepath)
+        })
+    except Exception as e:
+        conn.close()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/get_body_part_image/<int:fingerprint_id>/<int:pain_id>")
+def get_body_part_image(fingerprint_id, pain_id):
+    """Get body part image for a pain analysis."""
+    conn = get_db()
+    cur = conn.cursor()
+    
+    cur.execute(
+        """SELECT image_path FROM pain_analysis WHERE id = ? AND fingerprint_id = ?""",
+        (pain_id, fingerprint_id)
+    )
+    row = cur.fetchone()
+    conn.close()
+    
+    if not row or not row['image_path']:
+        return jsonify({"ok": False, "error": "Image not found"}), 404
+    
+    try:
+        return send_file(row['image_path'], mimetype='image/png')
+    except:
+        return jsonify({"ok": False, "error": "File not found"}), 404
 
 
 # -----------------------------------------------------------------------------

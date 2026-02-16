@@ -490,16 +490,77 @@
         ).join('');
       }
 
-      // Create area buttons
+      // Create area buttons with Method 3 (Image + Text Layout)
       if (areaButtons) {
         areaButtons.innerHTML = "";
-        SPECIFIC_AREAS[bodyPart].forEach(area => {
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "btn btn-outline";
-          btn.textContent = area;
-          btn.addEventListener("click", () => selectSpecificArea(area));
-          areaButtons.appendChild(btn);
+        SPECIFIC_AREAS[bodyPart].forEach((area, index) => {
+          // Convert area name to filename format
+          const imageFileName = bodyPart.toLowerCase().replace(/\s+/g, '_') + '_' + area.toLowerCase().replace(/\s+/g, '_') + '.png';
+          
+          const boxDiv = document.createElement("div");
+          boxDiv.className = "specific-area-box";
+          boxDiv.style.cssText = `
+            display: flex;
+            gap: 15px;
+            padding: 15px;
+            border: 2px solid #cbd5e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #fff;
+            margin-bottom: 10px;
+          `;
+          
+          boxDiv.onmouseover = function() {
+            this.style.borderColor = '#805ad5';
+            this.style.background = '#f7fafc';
+            this.style.boxShadow = '0 2px 8px rgba(128,90,213,0.2)';
+          };
+          
+          boxDiv.onmouseout = function() {
+            this.style.borderColor = '#cbd5e0';
+            this.style.background = '#fff';
+            this.style.boxShadow = 'none';
+          };
+          
+          boxDiv.innerHTML = `
+            <!-- IMAGE SECTION (LEFT) -->
+            <div style="flex-shrink: 0; position: relative;">
+              <img 
+                src="/images/${imageFileName}" 
+                alt="${area}" 
+                style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; border: 2px solid #e2e8f0; background: #f7fafc;"
+                onerror="this.style.background='#fed7d7'; this.style.borderColor='#fc8181'; this.innerHTML='📷';"
+              >
+            </div>
+
+            <!-- TEXT SECTION (RIGHT) -->
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
+              <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                <input 
+                  type="radio" 
+                  name="specific_area_radio" 
+                  value="${area}" 
+                  id="area_${index}"
+                  style="width: 18px; height: 18px; cursor: pointer;">
+                <label 
+                  for="area_${index}" 
+                  style="cursor: pointer; font-size: 16px; font-weight: bold; margin: 0; color: #2d3748;">
+                  ${area}
+                </label>
+              </div>
+              <p style="margin: 0; color: #718096; font-size: 13px; line-height: 1.4;">
+                📍 Specific area of ${bodyPart.toLowerCase()}
+              </p>
+            </div>
+          `;
+          
+          boxDiv.addEventListener("click", () => {
+            selectSpecificArea(area);
+            document.getElementById(`area_${index}`).checked = true;
+          });
+          
+          areaButtons.appendChild(boxDiv);
         });
       }
 
@@ -511,18 +572,6 @@
       selectedArea = area;
       setSpecificArea(area);
       
-      // Update button styles
-      const areaButtons = document.getElementById("specific-area-buttons");
-      if (areaButtons) {
-        areaButtons.querySelectorAll("button").forEach(btn => {
-          if (btn.textContent === area) {
-            btn.className = "btn btn-primary";
-          } else {
-            btn.className = "btn btn-outline";
-          }
-        });
-      }
-
       // Update message
       if (msg) {
         msg.textContent = `Selected: ${selectedPart} - ${area}`;
@@ -932,6 +981,7 @@
         });
         if (r.ok) {
           sessionStorage.setItem("doctor_logged_in", "1");
+          sessionStorage.setItem("doctor_id", doctorId);
           window.location.href = "/doctor_dashboard.html";
         }
       } catch (err) {
@@ -971,6 +1021,26 @@
     const compareBtn = document.getElementById("compare-analyses-btn");
     const uploadForm = document.getElementById("upload-document-form");
 
+    // View Vitals Timeline
+    if (timelineBtn) {
+      timelineBtn.onclick = () => {
+        const chartsContainer = document.getElementById("vitals-charts-container");
+        if (chartsContainer) {
+          chartsContainer.scrollIntoView({ behavior: "smooth" });
+        }
+      };
+    }
+
+    // Compare Pain Analyses
+    if (compareBtn) {
+      compareBtn.onclick = () => {
+        const painContainer = document.getElementById("pain-comparison-container");
+        if (painContainer) {
+          painContainer.scrollIntoView({ behavior: "smooth" });
+        }
+      };
+    }
+
     if (deleteBtn) {
       deleteBtn.onclick = async () => {
         if (!selectedFid) return;
@@ -1002,49 +1072,131 @@
     if (printBtn) {
       printBtn.onclick = () => {
         if (!selectedFid || !currentPatient) return alert("Please select a patient first");
+        const doctorId = sessionStorage.getItem("doctor_id") || "Dr. [Your Name]";
+        const todayDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        const prescriptionKey = `prescription_${selectedFid}`;
+        const savedPrescription = localStorage.getItem(prescriptionKey) || '{}';
+        
         const printWindow = window.open('', '_blank');
         printWindow.document.write(`
           <html>
           <head><title>Prescription - ${currentPatient.name}</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
-            .header { text-align: center; border-bottom: 2px solid #3182ce; padding-bottom: 20px; margin-bottom: 30px; }
-            .patient-info { background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
-            .prescription-box { border: 2px solid #e2e8f0; padding: 30px; min-height: 300px; margin-bottom: 30px; }
-            .signature { margin-top: 50px; }
-            .line { border-bottom: 1px solid #000; width: 300px; margin-top: 10px; }
-            @media print { .no-print { display: none; } }
+            body { font-family: Arial, sans-serif; padding: 30px; max-width: 900px; margin: 0 auto; color: #333; line-height: 1.6; }
+            .header { text-align: center; border-bottom: 3px solid #3182ce; padding-bottom: 20px; margin-bottom: 30px; }
+            .header h1 { margin: 0; color: #3182ce; font-size: 28px; }
+            .header h2 { margin: 5px 0 0 0; color: #718096; font-size: 18px; }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+            .info-box { background: #f7fafc; padding: 15px; border-radius: 8px; border-left: 4px solid #3182ce; }
+            .info-box h4 { margin: 0 0 10px 0; color: #2d3748; font-size: 13px; font-weight: bold; }
+            .info-box p { margin: 5px 0; font-size: 13px; }
+            .prescription-box { border: 2px solid #cbd5e0; padding: 30px; min-height: 450px; margin-bottom: 30px; background: #fafbfc; page-break-inside: avoid; }
+            .prescription-box h3 { margin: 0 0 20px 0; font-size: 20px; font-weight: bold; }
+            textarea { width: 100%; border: 1px solid #cbd5e0; padding: 10px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 13px; resize: vertical; background: white; }
+            .form-row { margin-bottom: 20px; }
+            .form-row label { display: block; font-weight: bold; font-size: 11px; color: #4a5568; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+            .signature { margin-top: 40px; border-top: 2px solid #e2e8f0; padding-top: 30px; }
+            .sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+            .sig-box { text-align: center; }
+            .sig-line { border-bottom: 2px solid #000; height: 50px; margin-bottom: 8px; }
+            .sig-label { font-size: 11px; color: #4a5568; font-weight: bold; }
+            .metadata { font-size: 10px; color: #a0aec0; margin-top: 15px; text-align: center; }
+            @media print { 
+              .no-print { display: none !important; }
+              body { padding: 10px; }
+              textarea { border: 1px solid #cbd5e0 !important; background: white !important; }
+              .prescription-box { page-break-inside: avoid; }
+            }
           </style>
           </head>
           <body>
             <div class="header">
               <h1>🏥 Medical Robot Assistant</h1>
-              <h2>Doctor Prescription</h2>
+              <h2>Medical Prescription Form</h2>
             </div>
-            <div class="patient-info">
-              <h3>Patient Information</h3>
-              <p><strong>Name:</strong> ${currentPatient.name}</p>
-              <p><strong>Age:</strong> ${currentPatient.age} years</p>
-              <p><strong>Sex:</strong> ${currentPatient.sex}</p>
-              <p><strong>Fingerprint ID:</strong> ${currentPatient.fingerprint_id}</p>
-              <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-            </div>
-            <div class="prescription-box">
-              <h3>Rx - Prescription</h3>
-              <p style="color: #666;">(Write prescription here...)</p>
-              <div style="margin-top: 100px;">
-                <p>Doctor's Notes: ___________________________________________</p>
-                <p style="margin-top: 20px;">Diagnosis: ___________________________________________</p>
-                <p style="margin-top: 20px;">Medications: ___________________________________________</p>
-                <p style="margin-top: 20px;">Instructions: ___________________________________________</p>
+            
+            <div class="info-grid">
+              <div class="info-box">
+                <h4>👤 Patient Information</h4>
+                <p><strong>${currentPatient.name}</strong></p>
+                <p>Age: ${currentPatient.age} years</p>
+                <p>Sex: ${currentPatient.sex}</p>
+                <p>ID: ${currentPatient.fingerprint_id}</p>
+              </div>
+              <div class="info-box">
+                <h4>👨‍⚕️ Doctor & Date</h4>
+                <p><strong>Doctor:</strong> ${doctorId}</p>
+                <p><strong>Date:</strong> ${todayDate}</p>
+                <p><strong>Clinic:</strong> Medical Triage</p>
               </div>
             </div>
-            <div class="signature">
-              <p><strong>Doctor's Signature:</strong></p>
-              <div class="line"></div>
-              <p style="margin-top: 10px;">Date: _______________</p>
+            
+            <div class="prescription-box">
+              <h3>Rx - Medical Prescription</h3>
+              
+              <div class="form-row">
+                <label>📋 Diagnosis</label>
+                <textarea id="diagnosis" rows="3" placeholder="Enter patient diagnosis and clinical findings..."></textarea>
+              </div>
+              
+              <div class="form-row">
+                <label>💊 Medications & Dosage</label>
+                <textarea id="medications" rows="5" placeholder="Example Format:\\n1. Paracetamol 500mg - 1 tablet twice daily after meals for 5 days\\n2. Amoxicillin 250mg - 1 tablet three times daily for 7 days\\n3. Vitamin C 1000mg - 1 tablet daily\\n\\nFrequency and duration required."></textarea>
+              </div>
+              
+              <div class="form-row">
+                <label>📝 Patient Instructions & Precautions</label>
+                <textarea id="instructions" rows="3" placeholder="e.g., Avoid dairy with antibiotics, drink plenty of water, rest for 2 days, avoid strenuous activity..."></textarea>
+              </div>
+              
+              <div class="form-row">
+                <label>📌 Additional Notes</label>
+                <textarea id="notes" rows="2" placeholder="Follow-up, lab tests required, allergies noted, etc..."></textarea>
+              </div>
             </div>
-            <button class="no-print" onclick="window.print()" style="position: fixed; top: 20px; right: 20px; padding: 15px 30px; background: #3182ce; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">🖨️ Print Prescription</button>
+            
+            <div class="signature">
+              <div class="sig-grid">
+                <div class="sig-box">
+                  <div class="sig-line\"></div>
+                  <div class="sig-label\">Doctor's Signature & Stamp</div>
+                </div>
+                <div class="sig-box\">
+                  <div class="sig-label\"><strong>Date:</strong> ${todayDate}</div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="metadata">
+              Prescription Generated: ${new Date().toLocaleString()} | Hospital: Medical Triage Clinic | Valid with Doctor's Signature
+            </div>
+            
+            <button class="no-print" onclick="savePrescription(); window.print();" style="position: fixed; top: 20px; right: 20px; padding: 12px 24px; background: #3182ce; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.2);\">💾 Save & Print</button>
+            
+            <script>
+              function savePrescription() {
+                const data = {
+                  diagnosis: document.getElementById('diagnosis').value,
+                  medications: document.getElementById('medications').value,
+                  instructions: document.getElementById('instructions').value,
+                  notes: document.getElementById('notes').value,
+                  date: '${todayDate}',
+                  doctor: '${doctorId}'
+                };
+                localStorage.setItem('prescription_${selectedFid}', JSON.stringify(data));
+              }
+              
+              // Load saved prescription if exists
+              try {
+                const saved = JSON.parse(\`${savedPrescription}\`);
+                if (saved && saved.diagnosis) {
+                  if (document.getElementById('diagnosis')) document.getElementById('diagnosis').value = saved.diagnosis;
+                  if (document.getElementById('medications')) document.getElementById('medications').value = saved.medications;
+                  if (document.getElementById('instructions')) document.getElementById('instructions').value = saved.instructions;
+                  if (document.getElementById('notes')) document.getElementById('notes').value = saved.notes;
+                }
+              } catch (e) {}
+            </script>
           </body>
           </html>
         `);
@@ -1159,37 +1311,50 @@
     async function loadVitalsCharts(fid) {
       try {
         const r = await fetchJSON(`${API}/get_patient_timeline/${fid}`);
+        if (!r.ok || !r.timeline) {
+          console.error("Invalid response:", r);
+          return;
+        }
         const vitals = r.timeline.vitals || [];
         
         if (vitals.length === 0) {
-          // No data - hide charts or show message
+          const container = document.getElementById('vitals-charts-container');
+          if (container) {
+            const msg = container.querySelector('div') || document.createElement('div');
+            msg.innerHTML = '<p style="color: #666; padding: 20px;">No vitals data recorded yet. Please add vitals data first.</p>';
+            if (!container.querySelector('div')) container.appendChild(msg);
+          }
           return;
         }
 
-        const dates = vitals.map(v => v.recorded_at ? v.recorded_at.substring(0, 10) : '');
+        const dates = vitals.map(v => v.timestamp ? v.timestamp.substring(0, 10) : '');
+        if (dates.length === 0) return;
         
         // Destroy existing charts
-        Object.values(charts).forEach(chart => chart.destroy());
+        Object.values(charts).forEach(chart => { if (chart) chart.destroy(); });
         charts = {};
 
         // Weight Chart
         const weightCtx = document.getElementById('weight-chart');
-        if (weightCtx && vitals.some(v => v.weight)) {
-          charts.weight = new Chart(weightCtx, {
-            type: 'line',
-            data: {
-              labels: dates,
-              datasets: [{
-                label: 'Weight (kg)',
-                data: vitals.map(v => v.weight),
-                borderColor: '#3182ce',
-                backgroundColor: 'rgba(49, 130, 206, 0.1)',
-                fill: true,
-                tension: 0.4
-              }]
-            },
-            options: { responsive: true, maintainAspectRatio: true }
-          });
+        if (weightCtx) {
+          const weightData = vitals.map(v => v.weight || null).filter((v, i) => i < dates.length);
+          if (weightData.some(v => v !== null)) {
+            charts.weight = new Chart(weightCtx, {
+              type: 'line',
+              data: {
+                labels: dates,
+                datasets: [{
+                  label: 'Weight (kg)',
+                  data: weightData,
+                  borderColor: '#3182ce',
+                  backgroundColor: 'rgba(49, 130, 206, 0.1)',
+                  fill: true,
+                  tension: 0.4
+                }]
+              },
+              options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: true } } }
+            });
+          }
         }
 
         // Blood Pressure Chart
@@ -1288,6 +1453,14 @@
         }
       } catch (err) {
         console.error("Failed to load charts:", err);
+        const container = document.getElementById('vitals-charts-container');
+        if (container) {
+          const msg = document.createElement('div');
+          msg.innerHTML = `<p style="color: #e53e3e; padding: 20px;">Error loading charts: ${err.message || 'Unknown error'}</p>`;
+          const existing = container.querySelector('div:not([style*="grid"])');
+          if (existing) existing.remove();
+          container.insertBefore(msg, container.firstChild);
+        }
       }
     }
 
@@ -1338,6 +1511,83 @@
       }
     }
 
+    // Load body part images upload UI
+    async function loadBodyPartImages(fid) {
+      const container = document.getElementById('body-part-images-list');
+      if (!container) return;
+      
+      try {
+        const r = await fetchJSON(`${API}/get_patient_analyses/${fid}`);
+        const analyses = r.analyses || [];
+        
+        if (analyses.length === 0) {
+          container.innerHTML = "<p style='color: #666;'>No pain analyses to attach images to</p>";
+          return;
+        }
+
+        let html = '';
+        analyses.forEach((a, idx) => {
+          html += `
+            <div style="margin-top: 15px; padding: 15px; background: #f9f5f0; border-radius: 8px; border-left: 4px solid #d69e2e;">
+              <p style="margin: 0 0 10px 0;"><strong>📍 ${escapeHtml(a.body_part)}</strong> ${a.specific_area ? `(${escapeHtml(a.specific_area)})` : ''} - ${a.timestamp}</p>
+              <div style="background: white; padding: 12px; border-radius: 6px; display: flex; gap: 10px; align-items: flex-end;">
+                <div style="flex: 1;">
+                  <label for="image_${a.id}" style="display: block; font-size: 12px; color: #4a5568; margin-bottom: 5px; font-weight: bold;">Upload Image (PNG/JPG):</label>
+                  <input type="file" id="image_${a.id}" class="body-part-image-input" data-analysis-id="${a.id}" accept="image/png,image/jpeg,.jpg,.png" style="flex: 1; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px;">
+                </div>
+                <button class="btn btn-primary upload-body-image-btn" data-analysis-id="${a.id}" style="padding: 8px 16px; font-size: 14px;">📤 Upload</button>
+              </div>
+              ${a.image_path ? `<p style="margin-top: 8px; font-size: 12px; color: #38a169;">✅ Image attached: ${a.image_path.split('/').pop()}</p>` : ''}
+            </div>
+          `;
+        });
+        
+        container.innerHTML = html;
+        
+        // Add event listeners to upload buttons
+        document.querySelectorAll('.upload-body-image-btn').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const analysisId = e.target.getAttribute('data-analysis-id');
+            const fileInput = document.getElementById(`image_${analysisId}`);
+            await uploadBodyPartImage(fid, analysisId, fileInput);
+          });
+        });
+      } catch (err) {
+        container.innerHTML = "<p style='color: red;'>Failed to load pain analyses</p>";
+      }
+    }
+
+    // Upload body part image
+    async function uploadBodyPartImage(fid, analysisId, fileInput) {
+      if (!fileInput.files || !fileInput.files[0]) {
+        alert('Please select an image file');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+      formData.append('pain_id', analysisId);
+
+      try {
+        const response = await fetch(`${API}/upload_body_part_image/${fid}`, {
+          method: 'POST',
+          body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.ok) {
+          alert('Image uploaded successfully!');
+          fileInput.value = '';
+          loadBodyPartImages(fid); // Reload the list
+        } else {
+          alert('Upload failed: ' + (result.error || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('Upload error: ' + err.message);
+      }
+    }
+
     async function selectPatient(fid) {
       selectedFid = fid;
       currentPatient = allPatients.find(p => p.fingerprint_id === fid);
@@ -1353,6 +1603,9 @@
       
       // Load pain comparison
       loadPainComparison(fid);
+      
+      // Load body part images UI
+      loadBodyPartImages(fid);
 
       // Keep the rest of the existing functionality
       try {
@@ -1366,7 +1619,7 @@
         const analyses = analysesR.analyses || [];
 
         const historyContent = document.getElementById("medical-history-content");
-        const vitalsContainer = document.getElementById("patient-vitals-list");
+        const vitalsContainer = document.getElementById("vitals-history-content");
         const analysesContainer = document.getElementById("patient-analyses-list");
 
         if (historyContent) {

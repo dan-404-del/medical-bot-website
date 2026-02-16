@@ -61,10 +61,13 @@
       <!-- Medical History Form -->
       <div id="medical-history-content"></div>
 
-      <!-- Vitals Charts Section -->
+      <!-- Vitals Charts Section (Collapsible) -->
       <div id="vitals-charts-container" style="margin-top: 30px; background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
-        <h2>Vitals Trends & Charts</h2>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-top: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;" onclick="toggleSection('vitals-charts-content')">
+          <h2 style="margin: 0;">📊 Vitals Trends & Charts</h2>
+          <span class="collapse-icon" data-section="vitals-charts-content" style="font-size: 24px; transition: transform 0.3s;">▼</span>
+        </div>
+        <div id="vitals-charts-content" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-top: 20px;">
           <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
             <h4>Weight Trend</h4>
             <canvas id="weight-chart"></canvas>
@@ -84,25 +87,62 @@
         </div>
       </div>
 
-      <!-- Vitals History Table -->
-      <div id="patient-vitals-container" style="margin-top: 30px;">
-        <h2>Vitals History</h2>
-        <div id="patient-vitals-list"></div>
+      <!-- Vitals History Table (Collapsible) -->
+      <div id="patient-vitals-container" style="margin-top: 30px; background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;" onclick="toggleSection('vitals-history-content')">
+          <h2 style="margin: 0;">📈 Vitals History</h2>
+          <span class="collapse-icon" data-section="vitals-history-content" style="font-size: 24px; transition: transform 0.3s;">▼</span>
+        </div>
+        <div id="vitals-history-content" style="margin-top: 15px;"></div>
       </div>
 
-      <!-- Pain Analysis Comparison -->
+      <!-- Pain Analysis Comparison (Collapsible) -->
       <div id="pain-comparison-container" style="margin-top: 30px; background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
-        <h2>Pain Analysis Comparison</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;" onclick="toggleSection('pain-comparison-content')">
+          <h2 style="margin: 0;">🔍 Pain Analysis Comparison</h2>
+          <span class="collapse-icon" data-section="pain-comparison-content" style="font-size: 24px; transition: transform 0.3s;">▼</span>
+        </div>
         <div id="pain-comparison-content" style="margin-top: 15px;"></div>
       </div>
 
-      <!-- AI Triage History -->
-      <div id="patient-analyses-container" style="margin-top: 30px;">
-        <h2>AI Triage History</h2>
-        <div id="patient-analyses-list"></div>
+      <!-- Body Part Images Upload (Collapsible) -->
+      <div id="body-part-images-container" style="margin-top: 30px; background: #fff; padding: 20px; border-radius: 8px; border: 2px solid #d69e2e;">
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;" onclick="toggleSection('body-part-images-list')">
+          <h2 style="color: #d69e2e; margin: 0;">🔍 Body Part Zoomed Images</h2>
+          <span class="collapse-icon" data-section="body-part-images-list" style="font-size: 24px; transition: transform 0.3s; color: #d69e2e;">▼</span>
+        </div>
+        <p style="color: #666; font-size: 14px;">Upload zoomed-in PNG/JPG images of affected body parts to attach to pain analyses.</p>
+        
+        <div id="body-part-images-list" style="margin-top: 15px;">
+          <!-- Pain analyses will be listed here with upload buttons -->
+        </div>
+      </div>
+
+      <!-- AI Triage History (Collapsible) -->
+      <div id="patient-analyses-container" style="margin-top: 30px; background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;" onclick="toggleSection('patient-analyses-list')">
+          <h2 style="margin: 0;">🤖 AI Triage History</h2>
+          <span class="collapse-icon" data-section="patient-analyses-list" style="font-size: 24px; transition: transform 0.3s;">▼</span>
+        </div>
+        <div id="patient-analyses-list" style="margin-top: 15px;"></div>
       </div>
     </div>
   </div>
   <script src="/app.js"></script>
+  
+  <!-- Collapsible Sections Toggle Script -->
+  <script>
+    function toggleSection(sectionId) {
+      const section = document.getElementById(sectionId);
+      const icon = document.querySelector(`[data-section="${sectionId}"]`);
+      
+      if (section) {
+        section.style.display = section.style.display === 'none' ? '' : 'none';
+        if (icon) {
+          icon.style.transform = section.style.display === 'none' ? 'rotate(-90deg)' : 'rotate(0deg)';
+        }
+      }
+    }
+  </script>
 </body>
 </html>
