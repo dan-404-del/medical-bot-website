@@ -485,11 +485,13 @@ def analyze_condition():
         a = (answers or [])[i] if i < len(answers or []) else "N/A"
         qa_lines.append(f"Q: {q}\nA: {a}")
 
+<<<<<<< Updated upstream
     location_text = f"{body_part}"
-    if specific_area:
-        location_text += f" - {specific_area}"
+if specific_area:
+    location_text += f" - {specific_area}"
 
-    prompt = f"""You are an advisory triage assistant for a prototype medical robot. This is NOT a real diagnosis.
+prompt = f"""You are an advisory triage assistant for a prototype medical robot.
+This is NOT a real diagnosis.
 
 Patient: {row['name']}, age {row['age']}, sex {row['sex']}.
 Pain location: {location_text}
@@ -498,12 +500,43 @@ Vitals: {json.dumps(vitals)}
 Questions and answers:
 {chr(10).join(qa_lines)}
 
-Respond ONLY with valid JSON, no other text:
+IMPORTANT:
+- You MUST respond with ONLY raw JSON
+- Do NOT include explanations
+- Do NOT include markdown
+- Do NOT include text before or after JSON
+- Output must start with {{ and end with }}
+
+Respond exactly in this JSON format:
 {{
   "severity": "LOW" | "MEDIUM" | "HIGH" | "EMERGENCY",
-  "summary": "2-3 sentence explanation of triage assessment",
+  "summary": "2-3 sentence explanation",
   "recommendation": "Home care" | "Doctor consultation" | "Immediate emergency care"
 }}"""
+
+>>>>>>> Stashed changes
+
+Patient: {row['name']}, age {row['age']}, sex {row['sex']}.
+Pain location: {location_text}
+Vitals: {json.dumps(vitals)}
+
+Questions and answers:
+{chr(10).join(qa_lines)}
+
+IMPORTANT:
+- You MUST respond with ONLY raw JSON
+- Do NOT include explanations
+- Do NOT include markdown
+- Do NOT include text before or after JSON
+- Output must start with {{ and end with }}
+
+Respond exactly in this JSON format:
+{{
+  "severity": "LOW" | "MEDIUM" | "HIGH" | "EMERGENCY",
+  "summary": "2-3 sentence explanation",
+  "recommendation": "Home care" | "Doctor consultation" | "Immediate emergency care"
+}}
+"""
 
     if not GEMINI_API_KEY:
         # Offline fallback: mock response for demos without API key
@@ -655,50 +688,52 @@ def _save_analysis_result(fingerprint_id, body_part, specific_area, questions, a
     conn.commit()
     conn.close()
 
-
 def _call_gemini(prompt):
     """
-    Call Gemini API via HTTP. Requires GEMINI_API_KEY.
-    Returns (error_message, None) on failure, (None, result_dict) on success.
+    Call Gemini API via HTTP (AI Studio compatible).
     """
     import urllib.request
+    import urllib.error
+    import json
 
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+    print(">>> _call_gemini() CALLED <<<")
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
+
     url += f"?key={GEMINI_API_KEY}"
 
     body = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "temperature": 0.2,
-            "maxOutputTokens": 512,
-        },
+        "contents": [
+            {
+                "parts": [
+                    {"text": prompt}
+                ]
+            }
+        ]
     }
+
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(url, data=data, method="POST")
     req.add_header("Content-Type", "application/json")
 
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
-            resp = json.loads(r.read().decode())
+            resp = json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode("utf-8", errors="ignore")
+        print(">>> GEMINI HTTP ERROR <<<")
+        print("STATUS:", e.code)
+        print("BODY:", error_body)
+        return f"HTTP {e.code}: {error_body}", None
     except Exception as e:
+        print(">>> GEMINI GENERAL ERROR <<<", e)
         return str(e), None
 
-    parts = (resp.get("candidates") or [{}])[0].get("content", {}).get("parts") or []
-    text = (parts[0].get("text") or "").strip()
-
-    # Extract JSON from response (handle markdown code blocks)
-    if "```" in text:
-        start = text.find("```")
-        if "json" in text[: start + 10]:
-            start = text.find("\n", start) + 1
-        end = text.find("```", start)
-        if end > start:
-            text = text[start:end]
     try:
-        out = json.loads(text)
-        return None, out
-    except json.JSONDecodeError:
+        text = resp["candidates"][0]["content"]["parts"][0]["text"]
+        return None, json.loads(text)
+    except Exception:
         return "Gemini returned invalid JSON", None
+
 
 
 @app.route("/api/get_analysis/<int:fingerprint_id>")
@@ -1132,4 +1167,4 @@ if __name__ == "__main__":
     init_db()
     print("Medical Triage App running at http://localhost:5000")
     print("Set GEMINI_API_KEY for AI analysis. Optional for demos (mock result used).")
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
