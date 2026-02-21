@@ -324,6 +324,9 @@
     const info = document.getElementById("patient-info");
     const vitalsForm = document.getElementById("vitals-form");
     const vitalsMsg = document.getElementById("vitals-msg");
+    const arduinoStatus = document.getElementById("arduino-status");
+
+    let arduinoInterval;
 
     async function loadPatient() {
       try {
@@ -356,6 +359,75 @@
         window.location.href = "/";
       }
     }
+
+    // Fetch Arduino vitals and update form fields
+    async function fetchArduinoVitals() {
+      try {
+        const r = await fetchJSON(`${API}/get_arduino_vitals`);
+        
+        if (r.ok) {
+          // Update Arduino status indicator
+          if (arduinoStatus) {
+            if (r.status === "connected") {
+              arduinoStatus.innerHTML = "🟢 Arduino Connected - Live Feed Active";
+              arduinoStatus.style.background = "#f0fdf4";
+              arduinoStatus.style.color = "#15803d";
+            } else {
+              arduinoStatus.innerHTML = "🔴 Arduino Disconnected - Manual Input";
+              arduinoStatus.style.background = "#fff5f5";
+              arduinoStatus.style.color = "#c53030";
+            }
+          }
+
+          // Auto-populate form with Arduino data if available
+          if (r.heart_rate !== null) {
+            const hrInput = document.getElementById("heart_rate");
+            if (hrInput && hrInput.value === "") {
+              hrInput.value = r.heart_rate;
+            }
+          }
+          if (r.spo2 !== null) {
+            const spo2Input = document.getElementById("spo2");
+            if (spo2Input && spo2Input.value === "") {
+              spo2Input.value = r.spo2;
+            }
+          }
+          if (r.temperature !== null) {
+            const tempInput = document.getElementById("temperature");
+            if (tempInput && tempInput.value === "") {
+              tempInput.value = r.temperature;
+            }
+          }
+          if (r.weight !== null) {
+            const weightInput = document.getElementById("weight");
+            if (weightInput && weightInput.value === "") {
+              weightInput.value = r.weight;
+            }
+          }
+          if (r.height !== null) {
+            const heightInput = document.getElementById("height");
+            if (heightInput && heightInput.value === "") {
+              heightInput.value = r.height;
+            }
+          }
+
+          // Show timestamp when data was received
+          if (r.status === "connected" && r.timestamp) {
+            const timeStr = new Date(r.timestamp).toLocaleTimeString();
+            vitalsMsg.textContent = `✓ Live Arduino data (updated: ${timeStr})`;
+            vitalsMsg.className = "msg success";
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch Arduino vitals:", err);
+      }
+    }
+
+    // Start fetching Arduino data on page load
+    fetchArduinoVitals();
+    
+    // Refresh Arduino data every 1 second for live updates
+    arduinoInterval = setInterval(fetchArduinoVitals, 1000);
 
     if (vitalsForm) {
       vitalsForm.addEventListener("submit", async (e) => {

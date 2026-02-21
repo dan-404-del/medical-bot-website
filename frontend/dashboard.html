@@ -24,8 +24,12 @@
 
     <h2 data-translate="vitals">Vitals</h2>
     <p style="margin-bottom: 16px; color: #718096;">
-      Manual input for now. Ready for Arduino/sensor integration (heart rate, SpO2, etc.).
+      Live vitals feed from Arduino. Data automatically updates from your sensors.
     </p>
+
+    <div id="arduino-status" style="padding: 12px; margin-bottom: 16px; border-radius: 6px; font-weight: bold; text-align: center; background: #fff5f5; color: #c53030;">
+      🔴 Arduino Disconnected
+    </div>
 
     <div id="vitals-msg" class="msg"></div>
 

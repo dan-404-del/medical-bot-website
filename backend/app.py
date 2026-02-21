@@ -10,6 +10,9 @@ import os
 import sqlite3
 import json
 import io
+import serial
+import threading
+import time
 from pathlib import Path
 from datetime import datetime
 
@@ -33,9 +36,84 @@ DOCTOR_PASSWORD = "demo123"
 
 app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path="")
 
-# -----------------------------------------------------------------------------
+# =============================================================================
+# ARDUINO SERIAL CONFIGURATION & LIVE VITALS READING
+# =============================================================================
+
+# Global variable to store latest Arduino data
+latest_arduino_data = {
+    "heart_rate": None,
+    "spo2": None,
+    "temperature": None,
+    "weight": None,
+    "height": None,
+    "timestamp": None,
+    "status": "disconnected"
+}
+
+def read_arduino_data():
+    """
+    Read vitals from Arduino via USB serial.
+    Expects JSON format from Arduino: {"hr": 72, "spo2": 98, "temp": 36.5, "weight": 70, "height": 170}
+    Runs in background thread.
+    """
+    ser = None
+    while True:
+        try:
+            if ser is None or not ser.is_open:
+                # Try different common serial ports
+                ports = ['/dev/ttyUSB0', '/dev/ttyACM0', '/dev/ttyAMA0', 'COM3', 'COM4']
+                connected = False
+                for port in ports:
+                    try:
+                        ser = serial.Serial(port, 9600, timeout=2)
+                        time.sleep(2)  # Wait for Arduino to initialize
+                        print(f"✓ Arduino connected on {port}")
+                        latest_arduino_data["status"] = "connected"
+                        connected = True
+                        break
+                    except serial.SerialException:
+                        continue
+                
+                if not connected:
+                    latest_arduino_data["status"] = "disconnected"
+                    time.sleep(3)
+                    continue
+            
+            if ser.in_waiting > 0:
+                try:
+                    line = ser.readline().decode('utf-8').strip()
+                    if line:
+                        data = json.loads(line)
+                        # Update global data if all required fields are present
+                        if all(key in data for key in ["hr", "spo2", "temp", "weight", "height"]):
+                            latest_arduino_data["heart_rate"] = int(data["hr"])
+                            latest_arduino_data["spo2"] = int(data["spo2"])
+                            latest_arduino_data["temperature"] = float(data["temp"])
+                            latest_arduino_data["weight"] = float(data["weight"])
+                            latest_arduino_data["height"] = float(data["height"])
+                            latest_arduino_data["timestamp"] = datetime.now().isoformat()
+                            latest_arduino_data["status"] = "connected"
+                            print(f"✓ Arduino vitals: HR={data['hr']} SpO2={data['spo2']}% Temp={data['temp']}°C W={data['weight']}kg H={data['height']}cm")
+                except (json.JSONDecodeError, ValueError, KeyError) as e:
+                    pass
+        except serial.SerialException as e:
+            print(f"Arduino disconnected: {e}")
+            latest_arduino_data["status"] = "disconnected"
+            ser = None
+            time.sleep(2)
+        except Exception as e:
+            print(f"Arduino read error: {e}")
+            time.sleep(2)
+
+# Start Arduino reading in background thread (daemon mode)
+arduino_thread = threading.Thread(target=read_arduino_data, daemon=True)
+arduino_thread.start()
+print("Arduino reader thread started...")
+
+# =============================================================================
 # DATABASE HELPERS
-# -----------------------------------------------------------------------------
+# =============================================================================
 
 
 def get_db():
@@ -609,6 +687,21 @@ def get_patient_vitals(fingerprint_id):
             "timestamp": r["timestamp"],
         })
     return jsonify({"ok": True, "vitals": vitals})
+
+
+@app.route("/api/get_arduino_vitals")
+def get_arduino_vitals():
+    """Get latest vitals from Arduino in real-time."""
+    return jsonify({
+        "ok": True,
+        "heart_rate": latest_arduino_data["heart_rate"],
+        "spo2": latest_arduino_data["spo2"],
+        "temperature": latest_arduino_data["temperature"],
+        "weight": latest_arduino_data["weight"],
+        "height": latest_arduino_data["height"],
+        "timestamp": latest_arduino_data["timestamp"],
+        "status": latest_arduino_data["status"]
+    })
 
 
 @app.route("/api/get_patient_analyses/<int:fingerprint_id>")
