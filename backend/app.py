@@ -11,6 +11,7 @@ import sqlite3
 import json
 import io
 import serial
+import glob
 import threading
 import time
 from pathlib import Path
@@ -61,8 +62,13 @@ def read_arduino_data():
     while True:
         try:
             if ser is None or not ser.is_open:
-                # Try different common serial ports
-                ports = ['/dev/ttyUSB0', '/dev/ttyACM0', '/dev/ttyAMA0', 'COM3', 'COM4']
+                # Auto-detect common serial ports (Linux/Windows)
+                ports = []
+                try:
+                    ports = sorted(glob.glob('/dev/ttyACM*') + glob.glob('/dev/ttyUSB*') + glob.glob('/dev/ttyS*'))
+                except Exception:
+                    ports = ['/dev/ttyUSB0', '/dev/ttyACM0', '/dev/ttyAMA0', 'COM3', 'COM4']
+
                 connected = False
                 for port in ports:
                     try:
@@ -73,8 +79,9 @@ def read_arduino_data():
                         connected = True
                         break
                     except serial.SerialException:
+                        ser = None
                         continue
-                
+
                 if not connected:
                     latest_arduino_data["status"] = "disconnected"
                     time.sleep(3)
@@ -82,21 +89,42 @@ def read_arduino_data():
             
             if ser.in_waiting > 0:
                 try:
-                    line = ser.readline().decode('utf-8').strip()
+                    line = ser.readline().decode('utf-8', errors='ignore').strip()
                     if line:
                         data = json.loads(line)
-                        # Update global data if all required fields are present
-                        if all(key in data for key in ["hr", "spo2", "temp", "weight", "height"]):
-                            latest_arduino_data["heart_rate"] = int(data["hr"])
-                            latest_arduino_data["spo2"] = int(data["spo2"])
-                            latest_arduino_data["temperature"] = float(data["temp"])
-                            latest_arduino_data["weight"] = float(data["weight"])
-                            latest_arduino_data["height"] = float(data["height"])
-                            latest_arduino_data["timestamp"] = datetime.now().isoformat()
-                            latest_arduino_data["status"] = "connected"
-                            print(f"✓ Arduino vitals: HR={data['hr']} SpO2={data['spo2']}% Temp={data['temp']}°C W={data['weight']}kg H={data['height']}cm")
+                        # Support multiple key formats from Arduino (hr vs heart_rate, temp vs temperature)
+                        hr = data.get('hr') or data.get('heart_rate') or data.get('heartRate')
+                        spo2 = data.get('spo2') or data.get('SpO2') or data.get('spo2_percent')
+                        temp = data.get('temp') or data.get('temperature')
+                        weight = data.get('weight')
+                        height = data.get('height')
+                        bp = data.get('blood_pressure') or data.get('bp')
+
+                        # Update global data if at least one core sensor value exists
+                        if hr is not None or spo2 is not None or temp is not None:
+                            try:
+                                if hr is not None:
+                                    latest_arduino_data['heart_rate'] = int(hr)
+                                if spo2 is not None:
+                                    latest_arduino_data['spo2'] = int(spo2)
+                                if temp is not None:
+                                    latest_arduino_data['temperature'] = float(temp)
+                                if weight is not None:
+                                    latest_arduino_data['weight'] = float(weight)
+                                if height is not None:
+                                    latest_arduino_data['height'] = float(height)
+                                if bp is not None:
+                                    latest_arduino_data['blood_pressure'] = str(bp)
+
+                                latest_arduino_data['timestamp'] = datetime.now().isoformat()
+                                latest_arduino_data['status'] = 'connected'
+                                print(f"✓ Arduino vitals: HR={latest_arduino_data.get('heart_rate')} SpO2={latest_arduino_data.get('spo2')}% Temp={latest_arduino_data.get('temperature')}°C W={latest_arduino_data.get('weight')}kg H={latest_arduino_data.get('height')}cm")
+                            except (ValueError, TypeError):
+                                # Skip invalid numeric conversions but keep status connected
+                                latest_arduino_data['status'] = 'connected'
                 except (json.JSONDecodeError, ValueError, KeyError) as e:
-                    pass
+                    # If JSON can't be parsed, still mark port connected
+                    latest_arduino_data['status'] = 'connected'
         except serial.SerialException as e:
             print(f"Arduino disconnected: {e}")
             latest_arduino_data["status"] = "disconnected"
@@ -701,6 +729,15 @@ def get_arduino_vitals():
         "height": latest_arduino_data["height"],
         "timestamp": latest_arduino_data["timestamp"],
         "status": latest_arduino_data["status"]
+    })
+
+
+@app.route("/api/get_arduino_status")
+def get_arduino_status():
+    """Return current Arduino connection status and last vitals snapshot."""
+    return jsonify({
+        "status": latest_arduino_data.get("status", "disconnected"),
+        "vitals": latest_arduino_data
     })
 
 

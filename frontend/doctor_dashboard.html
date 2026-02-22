@@ -67,7 +67,7 @@
           <h2 style="margin: 0;">📊 Vitals Trends & Charts</h2>
           <span class="collapse-icon" data-section="vitals-charts-content" style="font-size: 24px; transition: transform 0.3s;">▼</span>
         </div>
-        <div id="vitals-charts-content" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-top: 20px;">
+        <div id="vitals-charts-content" style="display: none; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-top: 20px;">
           <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
             <h4>Weight Trend</h4>
             <canvas id="weight-chart"></canvas>
@@ -93,7 +93,7 @@
           <h2 style="margin: 0;">📈 Vitals History</h2>
           <span class="collapse-icon" data-section="vitals-history-content" style="font-size: 24px; transition: transform 0.3s;">▼</span>
         </div>
-        <div id="vitals-history-content" style="margin-top: 15px;"></div>
+        <div id="vitals-history-content" style="display: none; margin-top: 15px;"></div>
       </div>
 
       <!-- Pain Analysis Comparison (Collapsible) -->
@@ -102,7 +102,7 @@
           <h2 style="margin: 0;">🔍 Pain Analysis Comparison</h2>
           <span class="collapse-icon" data-section="pain-comparison-content" style="font-size: 24px; transition: transform 0.3s;">▼</span>
         </div>
-        <div id="pain-comparison-content" style="margin-top: 15px;"></div>
+        <div id="pain-comparison-content" style="display: none; margin-top: 15px;"></div>
       </div>
 
       <!-- Body Part Images Upload (Collapsible) -->
@@ -113,7 +113,7 @@
         </div>
         <p style="color: #666; font-size: 14px;">Upload zoomed-in PNG/JPG images of affected body parts to attach to pain analyses.</p>
         
-        <div id="body-part-images-list" style="margin-top: 15px;">
+        <div id="body-part-images-list" style="display: none; margin-top: 15px;">
           <!-- Pain analyses will be listed here with upload buttons -->
         </div>
       </div>
@@ -124,7 +124,7 @@
           <h2 style="margin: 0;">🤖 AI Triage History</h2>
           <span class="collapse-icon" data-section="patient-analyses-list" style="font-size: 24px; transition: transform 0.3s;">▼</span>
         </div>
-        <div id="patient-analyses-list" style="margin-top: 15px;"></div>
+        <div id="patient-analyses-list" style="display: none; margin-top: 15px;"></div>
       </div>
     </div>
   </div>

@@ -326,7 +326,20 @@
     const vitalsMsg = document.getElementById("vitals-msg");
     const arduinoStatus = document.getElementById("arduino-status");
 
+    // Live vitals elements
+    const liveVitalsDisplay = document.getElementById("live-vitals-display");
+    const fixedVitalsDisplay = document.getElementById("fixed-vitals-display");
+    const liveVitalsValues = document.getElementById("live-vitals-values");
+    const fixedVitalsValues = document.getElementById("fixed-vitals-values");
+    const countdownTimer = document.getElementById("countdown-timer");
+    const refreshCountdown = document.getElementById("refresh-countdown");
+    const btnRetakeVitals = document.getElementById("btn-retake-vitals");
+
     let arduinoInterval;
+    let liveVitalsInterval;
+    let countdownInterval;
+    let refreshInterval;
+    let capturedVitals = {};  
 
     async function loadPatient() {
       try {
@@ -360,23 +373,214 @@
       }
     }
 
-    // Fetch Arduino vitals and update form fields
+    // Format vitals value for display
+    function formatVitalValue(key, value) {
+      if (value === null || value === undefined) return "---";
+      const vitalsUnits = {
+        heart_rate: "bpm",
+        spo2: "%",
+        temperature: "°C",
+        weight: "kg",
+        height: "cm"
+      };
+      return value + (vitalsUnits[key] ? " " + vitalsUnits[key] : "");
+    }
+
+    // Display vitals in a grid (used for both live and fixed)
+    function displayVitals(container, vitals) {
+      container.innerHTML = `
+        <div class="vital-item">
+          <span class="vital-label">Heart Rate:</span>
+          <span class="vital-value">${formatVitalValue("heart_rate", vitals.heart_rate)}</span>
+        </div>
+        <div class="vital-item">
+          <span class="vital-label">SpO2:</span>
+          <span class="vital-value">${formatVitalValue("spo2", vitals.spo2)}</span>
+        </div>
+        <div class="vital-item">
+          <span class="vital-label">Temperature:</span>
+          <span class="vital-value">${formatVitalValue("temperature", vitals.temperature)}</span>
+        </div>
+        <div class="vital-item">
+          <span class="vital-label">Weight:</span>
+          <span class="vital-value">${formatVitalValue("weight", vitals.weight)}</span>
+        </div>
+        <div class="vital-item">
+          <span class="vital-label">Height:</span>
+          <span class="vital-value">${formatVitalValue("height", vitals.height)}</span>
+        </div>
+        <div class="vital-item">
+          <span class="vital-label">Blood Pressure:</span>
+          <span class="vital-value">${vitals.blood_pressure || "---"}</span>
+        </div>
+      `;
+    }
+
+    // Start the 4-second live vitals measurement
+    function startLiveVitalsDisplay() {
+      // Show live display; hide fixed display if present
+      if (liveVitalsDisplay) liveVitalsDisplay.style.display = "block";
+      if (fixedVitalsDisplay) fixedVitalsDisplay.style.display = "none";
+
+      let secondsLeft = 15;
+      let readingsCollected = [];
+
+      // Fetch vitals every 500ms during the measurement window
+      liveVitalsInterval = setInterval(async () => {
+        try {
+          const r = await fetchJSON(`${API}/get_arduino_vitals`);
+          if (r && r.ok) {
+            // consider data fresh if timestamp within 3s
+            let fresh = false;
+            if (r.timestamp) {
+              try { fresh = (Date.now() - new Date(r.timestamp).getTime()) <= 3000; } catch(e) { fresh = false; }
+            }
+
+            if (!fresh) {
+              // show placeholders (do not display warning text)
+              displayVitals(liveVitalsValues, { heart_rate: null, spo2: null, temperature: null, weight: null, height: null, blood_pressure: null });
+              if (document.getElementById('live-vitals-msg')) {
+                document.getElementById('live-vitals-msg').textContent = '';
+              }
+            } else {
+              const vitals = {
+                heart_rate: r.heart_rate,
+                spo2: r.spo2,
+                temperature: r.temperature,
+                weight: r.weight,
+                height: r.height,
+                blood_pressure: r.blood_pressure || ""
+              };
+              readingsCollected.push(vitals);
+              displayVitals(liveVitalsValues, vitals);
+              if (document.getElementById('live-vitals-msg')) {
+                document.getElementById('live-vitals-msg').textContent = '⏱️ Live sensor readings';
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Error fetching live vitals:", err);
+        }
+      }, 500);
+
+      // Countdown timer
+      countdownInterval = setInterval(() => {
+        secondsLeft--;
+        countdownTimer.textContent = Math.max(0, secondsLeft);
+
+            if (secondsLeft <= 0) {
+          clearInterval(liveVitalsInterval);
+          clearInterval(countdownInterval);
+
+          // Average the readings and fix the values
+          if (readingsCollected.length > 0) {
+            capturedVitals = {
+              heart_rate: Math.round(readingsCollected.reduce((sum, r) => sum + (r.heart_rate || 0), 0) / readingsCollected.length),
+              spo2: Math.round(readingsCollected.reduce((sum, r) => sum + (r.spo2 || 0), 0) / readingsCollected.length),
+              temperature: parseFloat((readingsCollected.reduce((sum, r) => sum + (r.temperature || 0), 0) / readingsCollected.length).toFixed(1)),
+              weight: parseFloat((readingsCollected.reduce((sum, r) => sum + (r.weight || 0), 0) / readingsCollected.length).toFixed(1)),
+              height: Math.round(readingsCollected.reduce((sum, r) => sum + (r.height || 0), 0) / readingsCollected.length),
+              blood_pressure: readingsCollected[readingsCollected.length - 1].blood_pressure || ""
+            };
+          }
+
+          // Reuse live vitals panel to show captured values (no separate fixed box)
+          if (liveVitalsDisplay) {
+            // update header to captured state
+            const hdr = liveVitalsDisplay.querySelector('h3');
+            if (hdr) {
+              hdr.textContent = '✅ VITALS CAPTURED';
+              hdr.style.color = '#3182ce';
+            }
+            if (countdownTimer) countdownTimer.textContent = '0';
+            if (document.getElementById('live-vitals-msg')) document.getElementById('live-vitals-msg').textContent = '✅ Capture complete';
+          }
+
+          // display captured vitals in the live container
+          if (liveVitalsValues) displayVitals(liveVitalsValues, capturedVitals);
+
+          // Auto-save vitals
+          saveFixedVitals(capturedVitals);
+
+          // Start auto-refresh countdown only if refresh element exists
+          startAutoRefreshCountdown();
+        }
+      }, 1000);
+    }
+
+    // Save the captured vitals to the backend
+    async function saveFixedVitals(vitals) {
+      try {
+        await fetchJSON(`${API}/save_vitals`, {
+          method: "POST",
+          body: JSON.stringify({
+            fingerprint_id: parseInt(fid, 10),
+            weight: vitals.weight || null,
+            height: vitals.height || null,
+            heart_rate: vitals.heart_rate || null,
+            spo2: vitals.spo2 || null,
+            temperature: vitals.temperature || null,
+            blood_pressure: vitals.blood_pressure || ""
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to save vitals:", err);
+      }
+    }
+
+    // Start 30-second auto-refresh countdown
+    function startAutoRefreshCountdown() {
+      // Only run if the refresh countdown element exists (we removed the separate captured block)
+      if (!refreshCountdown) return;
+      let secondsLeft = 30;
+      refreshCountdown.textContent = secondsLeft;
+
+      refreshInterval = setInterval(() => {
+        secondsLeft--;
+        if (refreshCountdown) {
+          refreshCountdown.textContent = Math.max(0, secondsLeft);
+        }
+
+        if (secondsLeft <= 0) {
+          clearInterval(refreshInterval);
+          // Auto-refresh page
+          window.location.reload();
+        }
+      }, 1000);
+    }
+
+    // Retake vitals button
+    if (btnRetakeVitals) {
+      btnRetakeVitals.addEventListener("click", () => {
+        clearInterval(liveVitalsInterval);
+        clearInterval(countdownInterval);
+        clearInterval(refreshInterval);
+        startLiveVitalsDisplay();
+      });
+    }
+
+    // Fetch Arduino vitals and update form fields (fallback for manual mode)
     async function fetchArduinoVitals() {
       try {
         const r = await fetchJSON(`${API}/get_arduino_vitals`);
         
         if (r.ok) {
-          // Update Arduino status indicator
-          if (arduinoStatus) {
-            if (r.status === "connected") {
-              arduinoStatus.innerHTML = "🟢 Arduino Connected - Live Feed Active";
-              arduinoStatus.style.background = "#f0fdf4";
-              arduinoStatus.style.color = "#15803d";
-            } else {
-              arduinoStatus.innerHTML = "🔴 Arduino Disconnected - Manual Input";
-              arduinoStatus.style.background = "#fff5f5";
-              arduinoStatus.style.color = "#c53030";
-            }
+          // Determine whether backend reports a live signal and whether the data is fresh
+          const THRESH_MS = 3000; // 3 seconds freshness
+          let fresh = false;
+          if (r.timestamp) {
+            try { fresh = (Date.now() - new Date(r.timestamp).getTime()) <= THRESH_MS; } catch (e) { fresh = false; }
+          }
+          const corePresent = (r.heart_rate !== null && r.heart_rate !== undefined && r.heart_rate !== 0) ||
+                              (r.spo2 !== null && r.spo2 !== undefined && r.spo2 !== 0) ||
+                              (r.temperature !== null && r.temperature !== undefined);
+
+          const hasSignal = ((r.status === "connected") && fresh) || (corePresent && fresh);
+
+          // Manual form remains visible at all times; do not toggle based on connection
+          if (vitalsForm) {
+            // ensure inputs are enabled so user can type anytime
+            Array.from(vitalsForm.querySelectorAll('input,select,textarea,button')).forEach(el => { el.disabled = false; });
           }
 
           // Auto-populate form with Arduino data if available
@@ -423,11 +627,39 @@
       }
     }
 
-    // Start fetching Arduino data on page load
-    fetchArduinoVitals();
-    
-    // Refresh Arduino data every 1 second for live updates
-    arduinoInterval = setInterval(fetchArduinoVitals, 1000);
+    // Start live vitals measurement on page load
+    startLiveVitalsDisplay();
+
+    // Keep this for backward compatibility if needed
+    // arduinoInterval = setInterval(fetchArduinoVitals, 1000);
+
+    // Poll Arduino status periodically to ensure manual form visibility updates
+    async function pollArduinoStatus() {
+      try {
+        const res = await fetchJSON(`${API}/get_arduino_status`);
+        if (!res) return;
+        const vit = res.vitals || {};
+        const THRESH_MS = 3000;
+        let fresh = false;
+        if (vit.timestamp) {
+          try { fresh = (Date.now() - new Date(vit.timestamp).getTime()) <= THRESH_MS; } catch(e) { fresh = false; }
+        }
+        const corePresent = (vit.heart_rate !== null && vit.heart_rate !== undefined && vit.heart_rate !== 0) ||
+                            (vit.spo2 !== null && vit.spo2 !== undefined && vit.spo2 !== 0) ||
+                            (vit.temperature !== null && vit.temperature !== undefined);
+        const connected = ((res.status === 'connected') && fresh) || (corePresent && fresh);
+
+        // Do not modify manual form visibility or live vitals display here; manual toggle and live panel
+        // display are managed elsewhere and should remain available at all times.
+        // (Nothing to do.)
+      } catch (e) {
+        console.error('pollArduinoStatus error', e);
+      }
+    }
+
+    // start periodic polling (faster, immediate status)
+    pollArduinoStatus();
+    setInterval(pollArduinoStatus, 1000);
 
     if (vitalsForm) {
       vitalsForm.addEventListener("submit", async (e) => {
@@ -454,6 +686,28 @@
           vitalsMsg.textContent = err.message || "Failed to save vitals.";
           vitalsMsg.className = "msg error";
         }
+      });
+    }
+
+    // When manual inputs are edited while offline, mirror into the live/fixed display
+    if (vitalsForm) {
+      const inputs = vitalsForm.querySelectorAll('input');
+      inputs.forEach(inp => {
+        inp.addEventListener('input', () => {
+          const get = id => (document.getElementById(id) && document.getElementById(id).value) || null;
+          const manualVitals = {
+            heart_rate: get('heart_rate') ? parseInt(get('heart_rate'),10) : null,
+            spo2: get('spo2') ? parseInt(get('spo2'),10) : null,
+            temperature: get('temperature') ? parseFloat(get('temperature')) : null,
+            weight: get('weight') ? parseFloat(get('weight')) : null,
+            height: get('height') ? parseFloat(get('height')) : null,
+            blood_pressure: get('blood_pressure') || ''
+          };
+          // Update live display with manual values (and fixed if present)
+          if (liveVitalsValues) displayVitals(liveVitalsValues, manualVitals);
+          if (fixedVitalsValues) displayVitals(fixedVitalsValues, manualVitals);
+          capturedVitals = manualVitals;
+        });
       });
     }
 

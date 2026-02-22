@@ -22,52 +22,180 @@
       <p>Loading doctor's remarks...</p>
     </div>
 
-    <h2 data-translate="vitals">Vitals</h2>
+    <h2 data-translate="vitals">Vitals</h2>  <!-- live panel always visible, manual form shown below -->
     <p style="margin-bottom: 16px; color: #718096;">
       Live vitals feed from Arduino. Data automatically updates from your sensors.
     </p>
 
-    <div id="arduino-status" style="padding: 12px; margin-bottom: 16px; border-radius: 6px; font-weight: bold; text-align: center; background: #fff5f5; color: #c53030;">
-      🔴 Arduino Disconnected
+    <!-- Arduino status banner removed (compact widget shows status) -->
+
+    <!-- Live Vitals Display (always visible during capture) -->
+    <div id="live-vitals-display" style="background: #e6f7ff; padding: 20px; border-radius: 8px; border: 2px solid #1890ff; margin-bottom: 20px; display: block;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="margin: 0; color: #1890ff;">🔴 LIVE VITALS - Measuring...</h3>
+        <div style="text-align: right;">
+          <div id="countdown-timer" style="font-size: 28px; font-weight: bold; color: #1890ff;">15</div>
+          <div style="font-size: 12px; color: #666;">seconds remaining</div>
+        </div>
+      </div>
+      <div class="vitals-grid" id="live-vitals-values" style="gap: 15px;">
+        <!-- Live values will be displayed here -->
+      </div>
+      <p id="live-vitals-msg" style="margin-top: 10px; text-align: center; color: #1890ff; font-weight: bold;">
+        ⏱️ Waiting for sensor readings...
+      </p>
     </div>
+
+    <!-- NOTE: Removed separate "captured vitals" box — results reuse the live vitals panel. -->
 
     <div id="vitals-msg" class="msg"></div>
 
-    <form id="vitals-form">
-      <div class="vitals-grid">
-        <div class="form-group">
-          <label for="weight">Weight (kg)</label>
-          <input type="number" id="weight" name="weight" min="0" step="0.1" placeholder="e.g. 70">
-        </div>
-        <div class="form-group">
-          <label for="height">Height (cm)</label>
-          <input type="number" id="height" name="height" min="0" step="0.1" placeholder="e.g. 170">
-        </div>
-        <div class="form-group">
-          <label for="heart_rate">Heart Rate (bpm)</label>
-          <input type="number" id="heart_rate" name="heart_rate" min="0" placeholder="e.g. 72">
-        </div>
-        <div class="form-group">
-          <label for="spo2">SpO2 (%)</label>
-          <input type="number" id="spo2" name="spo2" min="0" max="100" placeholder="e.g. 98">
-        </div>
-        <div class="form-group">
-          <label for="temperature">Temperature (°C)</label>
-          <input type="number" id="temperature" name="temperature" min="0" step="0.1" placeholder="e.g. 36.6">
-        </div>
-        <div class="form-group">
-          <label for="blood_pressure">Blood Pressure</label>
-          <input type="text" id="blood_pressure" name="blood_pressure" placeholder="e.g. 120/80">
-        </div>
+    <form id="vitals-form" style="display: block;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <div style="font-weight:700;">Manual Vitals (editable)</div>
+        <button type="button" id="vitals-collapse-btn" class="btn btn-secondary" style="padding:6px 8px; font-size:13px;">▸</button>
       </div>
-      <button type="submit" class="btn btn-primary">Save Vitals</button>
+      <div id="vitals-form-body" style="display:none;">
+        <div class="vitals-grid">
+          <div class="form-group">
+            <label for="weight">Weight (kg)</label>
+            <input type="number" id="weight" name="weight" min="0" step="0.1" placeholder="e.g. 70">
+          </div>
+          <div class="form-group">
+            <label for="height">Height (cm)</label>
+            <input type="number" id="height" name="height" min="0" step="0.1" placeholder="e.g. 170">
+          </div>
+          <div class="form-group">
+            <label for="heart_rate">Heart Rate (bpm)</label>
+            <input type="number" id="heart_rate" name="heart_rate" min="0" placeholder="e.g. 72">
+          </div>
+          <div class="form-group">
+            <label for="spo2">SpO2 (%)</label>
+            <input type="number" id="spo2" name="spo2" min="0" max="100" placeholder="e.g. 98">
+          </div>
+          <div class="form-group">
+            <label for="temperature">Temperature (°C)</label>
+            <input type="number" id="temperature" name="temperature" min="0" step="0.1" placeholder="e.g. 36.6">
+          </div>
+          <div class="form-group">
+            <label for="blood_pressure">Blood Pressure</label>
+            <input type="text" id="blood_pressure" name="blood_pressure" placeholder="e.g. 120/80">
+          </div>
+        </div>
+        <div style="margin-top:8px;"><button type="submit" class="btn btn-primary">Save Vitals</button></div>
+      </div>
     </form>
 
     <div class="nav-links" style="margin-top: 24px;">
       <button type="button" id="btn-pain" class="btn btn-primary">Go to Pain Selection Page</button>
     </div>
+    <!-- old large diagnostic link removed (using compact widget instead) -->
   </div>
+  <!-- Small Arduino debug widget (bottom-right) -->
+  <style>
+    #arduino-widget { position: fixed; right: 16px; bottom: 16px; z-index: 9999; }
+    #arduino-widget .dot { width: 44px; height: 44px; border-radius: 50%; background: #ed8936; display:flex; align-items:center; justify-content:center; color:white; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.15); }
+    #arduino-widget .panel { width: 260px; max-width: calc(100vw - 40px); background: #fff; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.12); overflow:hidden; margin-bottom:8px; display:none; font-size:13px; }
+    #arduino-widget .panel .head { background:#f7fafc; padding:8px 10px; font-weight:600; color:#2d3748; display:flex; justify-content:space-between; align-items:center; }
+    #arduino-widget .panel .body { padding:10px; color:#2d3748; }
+    #arduino-widget .status-dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:8px; vertical-align:middle; }
+    #arduino-widget .small { font-size:12px; color:#4a5568; }
+  </style>
+
+  <div id="arduino-widget">
+    <div class="panel" id="arduino-widget-panel">
+      <div class="head">Arduino Debug <button id="arduino-widget-close" style="border:none;background:transparent;cursor:pointer;font-weight:600;">✕</button></div>
+      <div class="body" id="arduino-widget-body">
+        <div id="awd-status"><span class="status-dot" style="background:#f56565"></span><span id="awd-status-text">Disconnected</span></div>
+        <div id="awd-last" class="small" style="margin-top:8px">Last: --</div>
+        <div id="awd-values" class="small" style="margin-top:8px">HR: -- | SpO2: -- | Tmp: --</div>
+        <div style="margin-top:10px; text-align:right"><button id="arduino-widget-refresh" class="btn btn-secondary" style="padding:6px 8px;font-size:12px">Refresh</button></div>
+      </div>
+    </div>
+    <div class="dot" id="arduino-widget-dot" title="Arduino Debug">⚙️</div>
+  </div>
+
+  <script>
+    (function(){
+      const dot = document.getElementById('arduino-widget-dot');
+      const panel = document.getElementById('arduino-widget-panel');
+      const closeBtn = document.getElementById('arduino-widget-close');
+      const refreshBtn = document.getElementById('arduino-widget-refresh');
+      const statusText = document.getElementById('awd-status-text');
+      const statusDot = document.querySelector('#awd-status .status-dot');
+      const lastText = document.getElementById('awd-last');
+      const valuesText = document.getElementById('awd-values');
+
+      function showPanel(){ panel.style.display = 'block'; }
+      function hidePanel(){ panel.style.display = 'none'; }
+      dot.addEventListener('click', ()=>{ panel.style.display = panel.style.display === 'block' ? 'none' : 'block'; });
+      closeBtn.addEventListener('click', hidePanel);
+      refreshBtn.addEventListener('click', fetchStatus);
+
+      async function fetchStatus(){
+        try{
+          const res = await fetch('/api/get_arduino_status');
+          if(!res.ok) throw new Error('no');
+          const j = await res.json();
+          const s = j.status || (j.vitals && j.vitals.status) || 'disconnected';
+          const vit = j.vitals || {};
+          // consider data fresh only if timestamp within threshold (ms)
+          const THRESH = 3000; // 3 seconds
+          let fresh = false;
+          if (vit.timestamp) {
+            const age = Date.now() - new Date(vit.timestamp).getTime();
+            fresh = age <= THRESH;
+          }
+          const corePresent = (vit.heart_rate !== null && vit.heart_rate !== undefined && vit.heart_rate !== 0) || (vit.spo2 !== null && vit.spo2 !== undefined && vit.spo2 !== 0) || (vit.temperature !== null && vit.temperature !== undefined);
+          // Only show Connected when the backend reports connected AND data is recent, or when recent core fields exist
+          const connected = ((s === 'connected') && fresh) || (corePresent && fresh);
+          if (s === 'connected' && !fresh) {
+            statusText.textContent = 'Connected (no recent readings)';
+          } else {
+            statusText.textContent = connected ? 'Connected' : 'Disconnected';
+          }
+          statusDot.style.background = connected ? '#48bb78' : '#f56565';
+          lastText.textContent = 'Last: ' + (vit.timestamp ? new Date(vit.timestamp).toLocaleTimeString() + ` (${Math.round((Date.now() - new Date(vit.timestamp).getTime())/1000)}s ago)` : '--');
+          // Show raw JSON only when connected (live); otherwise show placeholders
+          if (connected) {
+            valuesText.innerHTML = `<div style="white-space:pre-wrap; max-height:120px; overflow:auto; font-family:monospace; font-size:12px;">${JSON.stringify(vit, null, 2)}</div>`;
+          } else {
+            valuesText.textContent = 'HR: -- | SpO2: -- | Tmp: --';
+          }
+        }catch(err){
+          statusText.textContent = 'Error';
+          statusDot.style.background = '#f56565';
+          lastText.textContent = 'Last: --';
+          valuesText.textContent = 'HR: -- | SpO2: -- | Tmp: --';
+        }
+      }
+
+      // Poll every 1s and treat backend status as authoritative (no freshness delay)
+      fetchStatus();
+      setInterval(fetchStatus, 1000);
+    })();
+  </script>
+
   <script src="/app.js"></script>
+  <script>
+    // collapse button for manual vitals: user may hide/reveal the body fields
+    document.addEventListener('DOMContentLoaded', function(){
+      const btn = document.getElementById('vitals-collapse-btn');
+      const body = document.getElementById('vitals-form-body');
+      if (!btn || !body) return;
+
+      // collapse/expand the inner body area
+      btn.addEventListener('click', function(){
+        if (body.style.display === 'none'){
+          body.style.display = '';
+          btn.textContent = '▾';
+        } else {
+          body.style.display = 'none';
+          btn.textContent = '▸';
+        }
+      });
+    });
+  </script>
   <script>
     // Apply translations when page loads
     document.addEventListener('DOMContentLoaded', function() {
